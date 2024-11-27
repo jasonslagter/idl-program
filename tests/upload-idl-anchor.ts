@@ -1,8 +1,16 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import { UploadIdlAnchor } from "../target/types/upload_idl_anchor";
-import { FetchIDL, WriteIDL } from "./UploadIdl";
+import {
+  CreateBuffer,
+  FetchIDL,
+  InitializeIdlAccount,
+  SetBuffer,
+  WriteBuffer,
+} from "./UploadIdl";
 import { assert } from "chai";
+
+const IDL_PATH = "./tests/testidl.json";
 
 describe("upload-idl-anchor", () => {
   it.only("Is initialized!", async () => {
@@ -11,9 +19,7 @@ describe("upload-idl-anchor", () => {
     const program = anchor.workspace
       .UploadIdlAnchor as Program<UploadIdlAnchor>;
 
-    // Add your test here.
-    const tx = await program.methods.initialize().rpc();
-    console.log("Your transaction signature", tx);
+    await InitializeIdlAccount(IDL_PATH);
 
     const [idlAccount] = await anchor.web3.PublicKey.findProgramAddress(
       [Buffer.from("idl", "utf8"), provider.wallet.publicKey.toBuffer()],
@@ -22,10 +28,9 @@ describe("upload-idl-anchor", () => {
     const accountInfo = await provider.connection.getAccountInfo(idlAccount);
 
     assert.ok(accountInfo, "IDL account should exist after initialization");
-    console.log("IDL account created:", idlAccount.toBase58());
   });
 
-  // TODO: Will not work until we reset the data between uploads with set buffer
+  // TODO: Disabled: Need to create buffer of size of string and then write
   it("Write Url", async () => {
     const provider = anchor.AnchorProvider.env();
     anchor.setProvider(provider);
@@ -36,7 +41,7 @@ describe("upload-idl-anchor", () => {
     // Convert ArrayBuffer to Buffer
     const buffer = Buffer.from(url);
 
-    const tx = await program.methods.writeIdl(buffer).rpc();
+    const tx = await program.methods.writeBuffer(buffer).rpc();
     console.log("Your transaction signature", tx);
 
     // Fetch the IDL
@@ -74,23 +79,33 @@ describe("upload-idl-anchor", () => {
     const program = anchor.workspace
       .UploadIdlAnchor as Program<UploadIdlAnchor>;
 
-    await WriteIDL(
+    console.log("Creating buffer");
+
+    const bufferKeypair = await CreateBuffer(IDL_PATH);
+
+    await WriteBuffer(
       program.programId,
-      "./tests/testidl.json",
-      provider.wallet.publicKey
+      IDL_PATH,
+      provider.wallet.publicKey,
+      bufferKeypair.publicKey
     );
+
+    console.log("buffer written ", bufferKeypair.publicKey.toString());
+
+    await SetBuffer(bufferKeypair.publicKey);
+
+    console.log("buffer set");
+
     const idlResult = await FetchIDL(
       program.programId,
       provider.wallet.publicKey
     );
-    console.log("IDLResult", idlResult);
 
     // Assert that the IDL result is not null or undefined
     assert.ok(idlResult, "Fetched IDL should not be null or undefined");
 
     try {
       const idlJson = JSON.parse(idlResult);
-      assert.ok(idlJson.address, "IDL JSON should have a name field");
       assert.ok(idlJson.address, "IDL JSON should have a name field");
       assert.equal(
         idlJson.address,
