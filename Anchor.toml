@@ -5,7 +5,13 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-upload_idl_anchor = "SMWfYpQEWcgX2CCPmTKXp5Sn8mdji8sATYBSmqsqYaV"
+upload_idl_anchor = "idLB41CuMPpWZmQGGxpsxbyGDWWzono4JnFLJxQakrE"
+
+[test.validator]
+url = "https://api.mainnet-beta.solana.com"
+
+[[test.validator.clone]]
+address = "MkabCfyUD6rBTaYHpgKBBpBo5qzWA2pK2hrGGKMurJt"
 
 [registry]
 url = "https://api.apr.dev"

@@ -1,15 +1,72 @@
 use anchor_lang::idl::ERASED_AUTHORITY;
 use anchor_lang::prelude::*;
+use anchor_lang::solana_program::bpf_loader_upgradeable;
 
-declare_id!("SMWfYpQEWcgX2CCPmTKXp5Sn8mdji8sATYBSmqsqYaV");
+declare_id!("idLB41CuMPpWZmQGGxpsxbyGDWWzono4JnFLJxQakrE");
 
 #[program]
 pub mod upload_idl_anchor {
 
     use super::*;
 
-    pub fn initialize(ctx: Context<Initialize>, _len: u16) -> Result<()> {
+    #[error_code]
+    pub enum MyError {
+        #[msg("Only the program upgrade authority can initialize the IDL account")]
+        WrongAuthority,        
+        #[msg("The program account is not executable")]
+        NotExecutable,
+        #[msg("The program account is not a program. Not owned by the BPF loader")]
+        NotAProgram,
+        #[msg("The program account should not be a program data account")]
+        ShouldBeProgramAccount,
+    }
+
+    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
         msg!("IDL account initialized: {:?}", ctx.program_id);
+        
+        msg!("Signer {:?}!", ctx.accounts.signer.key);              
+        msg!("Authority {:?}!", ctx.accounts.program_data.upgrade_authority_address);              
+
+        if ctx.accounts.program_id.owner.key() != bpf_loader_upgradeable::ID {
+            return Err(MyError::NotAProgram.into());
+        }
+
+        if !ctx.accounts.program_id.executable {
+            return Err(MyError::NotExecutable.into());
+        }
+    
+        // Borrow the program's account data
+        let mut program_borrowed_data: &[u8] = &ctx.accounts.program_id.try_borrow_data()?;
+
+        // Deserialize the UpgradeableLoaderState from the program account data
+        let upgradable_loader_state =
+            UpgradeableLoaderState::try_deserialize_unchecked(&mut program_borrowed_data)?;
+
+        match upgradable_loader_state {
+            UpgradeableLoaderState::Uninitialized
+            | UpgradeableLoaderState::Buffer {
+                authority_address: _,
+            }
+            | UpgradeableLoaderState::ProgramData {
+                slot: _,
+                upgrade_authority_address: _,
+            } => {
+                return err!(MyError::ShouldBeProgramAccount);
+            }
+            UpgradeableLoaderState::Program {
+                programdata_address: program_data_address,
+            } => {
+                // Print out the program data address
+                msg!("Program Data Address: {:?}", program_data_address);
+
+                // Ensure the program data address matches the expected value
+                if program_data_address != ctx.accounts.program_data.key() {
+                    return err!(MyError::WrongAuthority);
+                }
+            }
+        }
+
+        // When all is good create PDA and save authority for later upgrades.
         ctx.accounts.idl.authority = *ctx.accounts.signer.key;
         Ok(())
     }
@@ -36,6 +93,10 @@ pub mod upload_idl_anchor {
 
     pub fn create_buffer(ctx: Context<IdlCreateBuffer>) -> Result<()> {
         ctx.accounts.buffer.authority = *ctx.accounts.authority.key;
+        Ok(())
+    }
+
+    pub fn close_buffer(_ctx: Context<IdlCloseBuffer>) -> Result<()> {
         Ok(())
     }
 
@@ -76,19 +137,23 @@ pub mod upload_idl_anchor {
 }
 
 #[derive(Accounts)]
-#[instruction(len: u16)]
 pub struct Initialize<'info> {
     #[account(
         init,
-        seeds = [b"idl", signer.key.as_ref()],
+        seeds = [b"idl", program_id.key.as_ref()],
         bump,
         payer = signer,
-        space = len as usize
+        space = 8 + 32 + 4,
     )]
     pub idl: Account<'info, IdlAccount>,
     #[account(mut)]
     pub signer: Signer<'info>,
     pub system_program: Program<'info, System>,
+    /// CHECK: This is the program id of the program you want to upload the IDL for. Checks are done in code.
+    pub program_id: AccountInfo<'info>,
+    // Make sure that the signer is actually the upgrade authority of the program.
+    #[account(constraint = program_data.upgrade_authority_address == Some(signer.key()))]
+    pub program_data: Account<'info, ProgramData>,
 }
 
 #[derive(Accounts)]
@@ -96,16 +161,19 @@ pub struct Initialize<'info> {
 pub struct Resize<'info> {
     #[account(
         mut,
-        seeds = [b"idl", idl.authority.as_ref()],
+        seeds = [b"idl", program_id.key.as_ref()],
         bump,
         realloc = len as usize, 
         realloc::zero = true, 
-        realloc::payer = signer
+        realloc::payer = signer,
+        constraint = idl.authority == signer.key()
     )]
     pub idl: Account<'info, IdlAccount>,
     #[account(mut)]
     pub signer: Signer<'info>,
     pub system_program: Program<'info, System>,
+    /// CHECK: This is the program id of the program you want to upload the IDL for.
+    pub program_id: AccountInfo<'info>,
 }
 
 // Accounts for creating an idl buffer.
@@ -117,9 +185,18 @@ pub struct IdlCreateBuffer<'info> {
     pub authority: Signer<'info>,
 }
 
+// Close buffer to claim back SOL
+#[derive(Accounts)]
+pub struct IdlCloseBuffer<'info> {
+    #[account(mut, close = authority, constraint = buffer.authority == authority.key())]
+    pub buffer: Account<'info, IdlAccount>,
+    #[account(constraint = authority.key != &ERASED_AUTHORITY)]
+    pub authority: Signer<'info>,
+}
+
 #[derive(Accounts)]
 pub struct WriteBuffer<'info> {
-    #[account(mut)]
+    #[account(mut, constraint = buffer.authority == signer.key())]
     pub buffer: Account<'info, IdlAccount>,
     #[account(mut, constraint = signer.key != &ERASED_AUTHORITY)]
     pub signer: Signer<'info>,
@@ -134,12 +211,16 @@ pub struct IdlSetBuffer<'info> {
     pub buffer: Account<'info, IdlAccount>,
     // The idl account to be updated with the buffer's data.
     #[account(mut, 
-        seeds = [b"idl", authority.key.as_ref()],
+        seeds = [b"idl", program_id.key.as_ref()],
         bump,
-        has_one = authority)]
+        has_one = authority,
+        constraint = idl.authority == authority.key()
+    )]
     pub idl: Account<'info, IdlAccount>,
     #[account(constraint = authority.key != &ERASED_AUTHORITY)]
     pub authority: Signer<'info>,
+    /// CHECK: This is the program id of the program you want to upload the IDL for.
+    pub program_id: AccountInfo<'info>,
 }
 
 #[account]
