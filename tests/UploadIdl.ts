@@ -1,52 +1,83 @@
 import { Keypair, PublicKey } from "@solana/web3.js";
 import fs from "fs";
 import { UploadIdlAnchor } from "../target/types/upload_idl_anchor";
-import { Program } from "@coral-xyz/anchor";
+import IDL from "../target/idl/upload_idl_anchor.json";
 import * as anchor from "@coral-xyz/anchor";
 import { inflate, deflate } from "pako";
 
-const provider = anchor.AnchorProvider.env();
-anchor.setProvider(provider);
-const program = anchor.workspace.UploadIdlAnchor as Program<UploadIdlAnchor>;
-const ADDITIONAL_DATA_OFFSET = 44;
+const METADATA_OFFSET = 44;
+const CHUNK_SIZE = 900;
+const MAX_RESIZE_STEP = 10240;
+const BPF_LOADER_2_PROGRAM_ID = new PublicKey(
+  "BPFLoaderUpgradeab1e11111111111111111111111"
+);
 
-async function UploadIdlByJsonPath(idlPath: string, programId: PublicKey) {
+async function UploadIdlByJsonPath(
+  idlPath: string,
+  programId: PublicKey,
+  keypair: Keypair,
+  rpcUrl: string
+) {
   let buffer: Buffer = fs.readFileSync(idlPath);
-  await InitIdl(buffer, programId);
+  await InitIdl(buffer, programId, keypair, rpcUrl);
 }
 
-async function UploadIdlUrl(url: string, programId: PublicKey) {
+async function UploadIdlUrl(
+  url: string,
+  programId: PublicKey,
+  keypair: Keypair,
+  rpcUrl: string
+) {
   let buffer: Buffer = Buffer.from(url, "utf8");
-  await InitIdl(buffer, programId);
+  await InitIdl(buffer, programId, keypair, rpcUrl);
 }
 
-async function InitIdl(buffer: Buffer, programId: PublicKey) {
-  const idlAccount = GetIdlAccount(programId);
+async function InitIdl(
+  buffer: Buffer,
+  programId: PublicKey,
+  keypair: Keypair,
+  rpcUrl: string
+) {
+  const connection = new anchor.web3.Connection(rpcUrl, "confirmed");
+  const provider = new anchor.AnchorProvider(
+    connection,
+    new anchor.Wallet(keypair),
+    {}
+  );
+  anchor.setProvider(provider);
+
+  const idlAccount = GetIdlAddress(programId);
   console.log("Idl pda address", idlAccount.toBase58());
-  await InitializeIdlAccount(idlAccount, programId);
+  await InitializeIdlAccount(idlAccount, programId, keypair, rpcUrl);
   console.log("Initialized Idl account");
-  const bufferAddress = await CreateBuffer(buffer);
+  const bufferAddress = await CreateBuffer(buffer, keypair, rpcUrl);
   console.log("Buffer created");
-  await WriteBuffer(buffer, bufferAddress.publicKey);
+  await WriteBuffer(buffer, bufferAddress.publicKey, keypair, rpcUrl);
   console.log("Buffer written");
-  await SetBuffer(bufferAddress.publicKey, programId);
+  await SetBuffer(bufferAddress.publicKey, programId, keypair, rpcUrl);
   console.log("Buffer set and buffer closed");
 }
 
 async function InitializeIdlAccount(
   idlPdaAddress: PublicKey,
-  programId: PublicKey
+  programId: PublicKey,
+  keypair: Keypair,
+  rpcUrl: string
 ) {
-  console.log("Idl account", idlPdaAddress.toBase58());
-
-  const idlAccountInfo = await provider.connection.getAccountInfo(
-    idlPdaAddress
+  const connection = new anchor.web3.Connection(rpcUrl, "confirmed");
+  const provider = new anchor.AnchorProvider(
+    connection,
+    new anchor.Wallet(keypair),
+    {}
   );
-  if (!idlAccountInfo) {
-    const BPF_LOADER_2_PROGRAM_ID = new PublicKey(
-      "BPFLoaderUpgradeab1e11111111111111111111111"
-    );
+  anchor.setProvider(provider);
+  const program = new anchor.Program(IDL as UploadIdlAnchor, provider);
 
+  console.log("Provider pubkey: " + anchor.getProvider().publicKey.toBase58());
+  console.log("keypair pubkey: " + keypair.publicKey.toBase58());
+
+  const idlAccountInfo = await connection.getAccountInfo(idlPdaAddress);
+  if (!idlAccountInfo) {
     const [programDataAddress] = await PublicKey.findProgramAddress(
       [programId.toBuffer()],
       BPF_LOADER_2_PROGRAM_ID
@@ -64,24 +95,35 @@ async function InitializeIdlAccount(
     console.log("Signature", signature);
 
     console.log("Idl account created", idlPdaAddress.toBase58());
-    await provider.connection.confirmTransaction(signature);
+    await connection.confirmTransaction(signature, "confirmed");
   } else {
     console.log("Idl account already exists");
   }
 }
 
-async function CreateBuffer(buffer: Buffer): Promise<Keypair | null> {
+async function CreateBuffer(
+  buffer: Buffer,
+  keypair: Keypair,
+  rpcUrl: string
+): Promise<Keypair | null> {
+  const connection = new anchor.web3.Connection(rpcUrl, "confirmed");
+  const provider = new anchor.AnchorProvider(
+    connection,
+    new anchor.Wallet(keypair),
+    {}
+  );
+  anchor.setProvider(provider);
+  const program = new anchor.Program(IDL as UploadIdlAnchor, provider);
+
   const idlBytes = deflate(new Uint8Array(buffer)); // Compress the IDL JSON
-  const bufferSize = idlBytes.length + ADDITIONAL_DATA_OFFSET; // 44 bytes for discriminator, authority, and data_len
+  const bufferSize = idlBytes.length + METADATA_OFFSET; // 44 bytes for discriminator, authority, and data_len
   let bufferKeypair = new Keypair();
 
   let createAccountInstruction = anchor.web3.SystemProgram.createAccount({
-    fromPubkey: provider.wallet.publicKey,
+    fromPubkey: keypair.publicKey,
     newAccountPubkey: bufferKeypair.publicKey,
     space: bufferSize,
-    lamports: await provider.connection.getMinimumBalanceForRentExemption(
-      bufferSize
-    ),
+    lamports: await connection.getMinimumBalanceForRentExemption(bufferSize),
     programId: program.programId,
   });
 
@@ -92,30 +134,43 @@ async function CreateBuffer(buffer: Buffer): Promise<Keypair | null> {
     })
     .instruction();
 
-  var getLatestBlockhash = await provider.connection.getLatestBlockhash();
+  var getLatestBlockhash = await connection.getLatestBlockhash();
 
   var tx = new anchor.web3.Transaction();
   tx.add(createAccountInstruction);
   tx.add(createBufferInstruction);
   tx.recentBlockhash = getLatestBlockhash.blockhash;
-  tx.feePayer = provider.wallet.publicKey;
+  tx.feePayer = keypair.publicKey;
   tx.sign(bufferKeypair);
   provider.wallet.signTransaction(tx);
 
-  var signature = await provider.connection.sendRawTransaction(tx.serialize());
+  var signature = await connection.sendRawTransaction(tx.serialize());
   console.log("Signature", signature);
 
   console.log("Buffer Address created", bufferKeypair.publicKey.toBase58());
 
-  await provider.connection.confirmTransaction(signature);
+  await connection.confirmTransaction(signature);
 
   return bufferKeypair;
 }
 
-async function WriteBuffer(buffer: Buffer, bufferAddress: PublicKey) {
+async function WriteBuffer(
+  buffer: Buffer,
+  bufferAddress: PublicKey,
+  keypair: Keypair,
+  rpcUrl: string
+) {
+  const connection = new anchor.web3.Connection(rpcUrl, "confirmed");
+  const provider = new anchor.AnchorProvider(
+    connection,
+    new anchor.Wallet(keypair),
+    {}
+  );
+  anchor.setProvider(provider);
+  const program = new anchor.Program(IDL as UploadIdlAnchor, provider);
+
   const idlBytes = deflate(new Uint8Array(buffer)); // Compress the buffer
 
-  const CHUNK_SIZE = 900;
   let offset = 0;
 
   while (offset < idlBytes.length) {
@@ -134,17 +189,25 @@ async function WriteBuffer(buffer: Buffer, bufferAddress: PublicKey) {
   console.log("Write buffer successfully!");
 }
 
-async function SetBuffer(bufferAddress: PublicKey, programId: PublicKey) {
-  const provider = anchor.AnchorProvider.env();
-  anchor.setProvider(provider);
-  const program = anchor.workspace.UploadIdlAnchor as Program<UploadIdlAnchor>;
-
-  const idlAccount = GetIdlAccount(programId);
-
-  const idlAccountAccountInfo = await provider.connection.getAccountInfo(
-    idlAccount
+async function SetBuffer(
+  bufferAddress: PublicKey,
+  programId: PublicKey,
+  keypair: Keypair,
+  rpcUrl: string
+) {
+  const connection = new anchor.web3.Connection(rpcUrl, "confirmed");
+  const provider = new anchor.AnchorProvider(
+    connection,
+    new anchor.Wallet(keypair),
+    {}
   );
-  const bufferAccountAccountInfo = await provider.connection.getAccountInfo(
+  anchor.setProvider(provider);
+  const program = new anchor.Program(IDL as UploadIdlAnchor, provider);
+
+  const idlAccount = GetIdlAddress(programId);
+
+  const idlAccountAccountInfo = await connection.getAccountInfo(idlAccount);
+  const bufferAccountAccountInfo = await connection.getAccountInfo(
     bufferAddress
   );
 
@@ -164,12 +227,13 @@ async function SetBuffer(bufferAddress: PublicKey, programId: PublicKey) {
       })
       .instruction();
     tx.add(resizeInstruction);
+    console.log("Resizing IDL account to: ", bufferAccountSize);
   } else {
     let leftOverToResize = Math.max(0, bufferAccountSize - idlAccountSize);
 
     while (leftOverToResize > 0) {
       // Determine the chunk size for this resize step (max 10KB per step)
-      const chunkSize = Math.min(10240, leftOverToResize);
+      const chunkSize = Math.min(MAX_RESIZE_STEP, leftOverToResize);
       idlAccountSize += chunkSize;
       const resizeInstruction = await program.methods
         .resize(idlAccountSize)
@@ -206,19 +270,19 @@ async function SetBuffer(bufferAddress: PublicKey, programId: PublicKey) {
 
   tx.add(closeBufferInstruction);
 
-  var getLatestBlockhash = await provider.connection.getLatestBlockhash();
+  var getLatestBlockhash = await connection.getLatestBlockhash();
   tx.recentBlockhash = getLatestBlockhash.blockhash;
-  tx.feePayer = provider.wallet.publicKey;
+  tx.feePayer = keypair.publicKey;
   provider.wallet.signTransaction(tx);
 
-  var signature = await provider.connection.sendRawTransaction(tx.serialize(), {
+  var signature = await connection.sendRawTransaction(tx.serialize(), {
     skipPreflight: true,
   });
-  await provider.connection.confirmTransaction(signature);
+  await connection.confirmTransaction(signature, "confirmed");
   console.log("Signature set buffer", signature);
 }
 
-function GetIdlAccount(programId: PublicKey): PublicKey {
+function GetIdlAddress(programId: PublicKey): PublicKey {
   const [idlAccount] = anchor.web3.PublicKey.findProgramAddressSync(
     [Buffer.from("idl", "utf8"), programId.toBuffer()],
     new PublicKey("idLB41CuMPpWZmQGGxpsxbyGDWWzono4JnFLJxQakrE")
@@ -226,34 +290,34 @@ function GetIdlAccount(programId: PublicKey): PublicKey {
   return idlAccount;
 }
 
-async function FetchIDL(programId: PublicKey): Promise<string | null> {
-  const provider = anchor.AnchorProvider.env();
-  anchor.setProvider(provider);
-  const idlAccount = GetIdlAccount(programId);
+async function FetchIDL(
+  programId: PublicKey,
+  rpcUrl: string
+): Promise<string | null> {
+  const connection = new anchor.web3.Connection(rpcUrl, "confirmed");
+
+  const idlAccount = GetIdlAddress(programId);
+  const accountInfo = await connection.getAccountInfo(idlAccount);
 
   // If we get the IDL account we can not access the additional data bytes at
   // the end so we need to use getaccount info and manually cut of the front.
   // const idl = await program.account.idlAccount.fetch(idlAccount);
   // console.log("IDL", idl);
 
-  const accountInfo = await provider.connection.getAccountInfo(idlAccount);
-
   if (!accountInfo) {
-    console.error("IDL account not found!");
-    return;
+    throw new Error(`IDL account not found at ${idlAccount.toBase58()}`);
   }
+
   // In the account we have the anchor descriminator 8 + authority 32 + data_len 4 + data
   const dataLenBytes = accountInfo.data.slice(
-    ADDITIONAL_DATA_OFFSET - 4,
-    ADDITIONAL_DATA_OFFSET
+    METADATA_OFFSET - 4,
+    METADATA_OFFSET
   ); // `data_len` starts at offset 40
   const dataLength = new DataView(dataLenBytes.buffer).getUint32(0, true); // Little-endian
 
-  console.log("Data", accountInfo.data);
-
   const compressedData = accountInfo.data.slice(
-    ADDITIONAL_DATA_OFFSET,
-    ADDITIONAL_DATA_OFFSET + dataLength
+    METADATA_OFFSET,
+    METADATA_OFFSET + dataLength
   ); // Skip metadata (44 bytes)
 
   // Decompress the data
@@ -266,12 +330,12 @@ async function FetchIDL(programId: PublicKey): Promise<string | null> {
 }
 
 export {
-  InitializeIdlAccount,
-  CreateBuffer,
-  WriteBuffer,
-  SetBuffer,
+  //InitializeIdlAccount,
+  //CreateBuffer,
+  //WriteBuffer,
+  //SetBuffer,
   FetchIDL,
   UploadIdlByJsonPath,
   UploadIdlUrl,
-  GetIdlAccount,
+  GetIdlAddress,
 };

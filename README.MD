@@ -12,13 +12,13 @@ Authority can also be changed (not implemented yet)
 Usage:
 
 ```ts
-await InitIdlUrl(url, programId);
+await UploadIdlUrl(url, programId, keypair, rpcUrl);
 ```
 
 or
 
 ```ts
-await InitIdlFile(pathToJsonFile, programId);
+await UploadIdlByJsonPath(pathToJsonFile, programId, keypair, rpcUrl);
 ```
 
 Then you can retrieve the IDL or URL using:
@@ -35,8 +35,6 @@ TODO:
 - Add change authority instruction
 - Add test case for bigger 10mb IDLs
 - Add priority fees to transactions
-- Remove anchor dependency from JS
-- Enable tests for other ppl using a devnet program and hardcoded key for tests
 
 Done:
 
@@ -48,3 +46,5 @@ Done:
 - Realloc when IDL becomes bigger or smaller than initially allocated
 - Move realloc into set buffer and combine with close buffer
 - Test case of < 10240 bytes IDL
+- Enable tests for other ppl using a devnet program and hardcoded key for tests
+- Remove anchor dependency from JS

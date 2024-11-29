@@ -8,10 +8,10 @@ skip-lint = false
 upload_idl_anchor = "idLB41CuMPpWZmQGGxpsxbyGDWWzono4JnFLJxQakrE"
 
 [test.validator]
-url = "https://api.mainnet-beta.solana.com"
+url = "https://api.devnet.solana.com"
 
 [[test.validator.clone]]
-address = "MkabCfyUD6rBTaYHpgKBBpBo5qzWA2pK2hrGGKMurJt"
+address = "6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A"
 
 [registry]
 url = "https://api.apr.dev"
