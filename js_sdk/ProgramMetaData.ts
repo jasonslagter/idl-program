@@ -22,7 +22,7 @@ class TransactionConfig {
   priorityFeesPerCU: number;
 }
 
-async function UploadIdlByJsonPath(
+async function uploadIdlByJsonPath(
   idlPath: string,
   programId: PublicKey,
   keypair: Keypair,
@@ -30,7 +30,7 @@ async function UploadIdlByJsonPath(
   priorityFeesPerCU: number
 ) {
   let buffer: Buffer = fs.readFileSync(idlPath);
-  await UploadMetaDataBySeed(
+  await uploadMetaDataBySeed(
     buffer,
     programId,
     keypair,
@@ -40,7 +40,7 @@ async function UploadIdlByJsonPath(
   );
 }
 
-async function UploadIdlUrl(
+async function uploadIdlUrl(
   url: string,
   programId: PublicKey,
   keypair: Keypair,
@@ -48,7 +48,7 @@ async function UploadIdlUrl(
   priorityFeesPerCU: number
 ) {
   let buffer: Buffer = Buffer.from(url, "utf8");
-  await UploadMetaDataBySeed(
+  await uploadMetaDataBySeed(
     buffer,
     programId,
     keypair,
@@ -58,7 +58,7 @@ async function UploadIdlUrl(
   );
 }
 
-async function UploadMetaDataBySeed(
+async function uploadMetaDataBySeed(
   buffer: Buffer,
   programId: PublicKey,
   keypair: Keypair,
@@ -74,9 +74,9 @@ async function UploadMetaDataBySeed(
   );
   anchor.setProvider(provider);
 
-  const idlAccount = GetCanonicalAddressAddressBySeed(programId, seed);
+  const idlAccount = getCanonicalAddressAddressBySeed(programId, seed);
   console.log("Idl pda address", idlAccount.toBase58());
-  await InitializeMetaDataBySeed(
+  await initializeMetaDataBySeed(
     idlAccount,
     programId,
     keypair,
@@ -85,14 +85,14 @@ async function UploadMetaDataBySeed(
     seed
   );
   console.log("Initialized Idl account");
-  const bufferAddress = await CreateBuffer(
+  const bufferAddress = await createBuffer(
     buffer,
     keypair,
     rpcUrl,
     priorityFeesPerCU
   );
   console.log("Buffer created");
-  await WriteBuffer(
+  await writeBuffer(
     buffer,
     bufferAddress.publicKey,
     keypair,
@@ -100,7 +100,7 @@ async function UploadMetaDataBySeed(
     priorityFeesPerCU
   );
   console.log("Buffer written");
-  await SetBuffer(
+  await setBuffer(
     bufferAddress.publicKey,
     programId,
     keypair,
@@ -111,7 +111,7 @@ async function UploadMetaDataBySeed(
   console.log("Buffer set and buffer closed");
 }
 
-async function InitializeMetaDataBySeed(
+async function initializeMetaDataBySeed(
   idlPdaAddress: PublicKey,
   programId: PublicKey,
   keypair: Keypair,
@@ -171,7 +171,7 @@ async function InitializeMetaDataBySeed(
   }
 }
 
-async function CreateBuffer(
+async function createBuffer(
   buffer: Buffer,
   keypair: Keypair,
   rpcUrl: string,
@@ -232,7 +232,7 @@ async function CreateBuffer(
   return bufferKeypair;
 }
 
-async function WriteBuffer(
+async function writeBuffer(
   buffer: Buffer,
   bufferAddress: PublicKey,
   keypair: Keypair,
@@ -289,7 +289,7 @@ async function WriteBuffer(
   console.log("Write buffer was successfully!");
 }
 
-async function SetBuffer(
+async function setBuffer(
   bufferAddress: PublicKey,
   programId: PublicKey,
   keypair: Keypair,
@@ -306,7 +306,7 @@ async function SetBuffer(
   anchor.setProvider(provider);
   const program = new anchor.Program(IDL as UploadIdlAnchor, provider);
 
-  const idlAccount = GetCanonicalAddressAddressBySeed(programId, seed);
+  const idlAccount = getCanonicalAddressAddressBySeed(programId, seed);
 
   const idlAccountAccountInfo = await connection.getAccountInfo(idlAccount);
   const bufferAccountAccountInfo = await connection.getAccountInfo(
@@ -394,11 +394,11 @@ async function SetBuffer(
   console.log("Signature set buffer", signature);
 }
 
-function GetCanonicalIdlAddress(programId: PublicKey): PublicKey {
-  return GetCanonicalAddressAddressBySeed(programId, IDL_SEED);
+function getCanonicalIdlAddress(programId: PublicKey): PublicKey {
+  return getCanonicalAddressAddressBySeed(programId, IDL_SEED);
 }
 
-function GetCanonicalAddressAddressBySeed(
+function getCanonicalAddressAddressBySeed(
   programId: PublicKey,
   seed: string
 ): PublicKey {
@@ -409,13 +409,13 @@ function GetCanonicalAddressAddressBySeed(
   return idlAccount;
 }
 
-async function FetchIDL(
+async function fetchIDL(
   programId: PublicKey,
   rpcUrl: string
 ): Promise<string | null> {
   const connection = new anchor.web3.Connection(rpcUrl, "confirmed");
 
-  const idlAccount = GetCanonicalAddressAddressBySeed(programId, IDL_SEED);
+  const idlAccount = getCanonicalAddressAddressBySeed(programId, IDL_SEED);
   const accountInfo = await connection.getAccountInfo(idlAccount);
 
   // If we get the IDL account we can not access the additional data bytes at
@@ -449,14 +449,10 @@ async function FetchIDL(
 }
 
 export {
-  FetchIDL,
-  UploadIdlByJsonPath,
-  UploadIdlUrl,
-  GetCanonicalIdlAddress,
-  GetCanonicalAddressAddressBySeed,
-  UploadMetaDataBySeed
-  // Not exported to not confuse people
-  //CreateBuffer,
-  //WriteBuffer,
-  //SetBuffer,
+  fetchIDL,
+  uploadIdlByJsonPath,
+  uploadIdlUrl,
+  getCanonicalIdlAddress,
+  getCanonicalAddressAddressBySeed,
+  uploadMetaDataBySeed
 };
