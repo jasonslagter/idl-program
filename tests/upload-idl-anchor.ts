@@ -2,12 +2,12 @@ import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import { UploadIdlAnchor } from "../target/types/upload_idl_anchor";
 import {
-  FetchIDL,
-  GetCanonicalAddressAddressBySeed,
-  GetCanonicalIdlAddress,
-  UploadIdlByJsonPath,
-  UploadIdlUrl,
-  UploadMetaDataBySeed,
+  fetchIDL,
+  getCanonicalAddressAddressBySeed,
+  getCanonicalIdlAddress,
+  uploadIdlByJsonPath,
+  uploadIdlUrl,
+  uploadMetaDataBySeed,
 } from "../js_sdk/ProgramMetaData";
 import { assert } from "chai";
 import { inflate } from "pako";
@@ -40,9 +40,9 @@ describe("upload-idl-anchor", () => {
     );
     await connection.confirmTransaction(airdropSig, "finalized");
 
-    await UploadIdlByJsonPath(IDL_PATH, TEST_IDL_PROGRAM, keypair, rpcUrl, 0);
+    await uploadIdlByJsonPath(IDL_PATH, TEST_IDL_PROGRAM, keypair, rpcUrl, 0);
 
-    const idlAccount = GetCanonicalIdlAddress(TEST_IDL_PROGRAM);
+    const idlAccount = getCanonicalIdlAddress(TEST_IDL_PROGRAM);
 
     console.log("Idl account", idlAccount.toBase58());
     const accountInfo = await connection.getAccountInfo(idlAccount);
@@ -50,7 +50,7 @@ describe("upload-idl-anchor", () => {
     console.log("Idl account info ", accountInfo);
     assert.ok(accountInfo, "IDL account should exist after initialization");
 
-    const idlResult = await FetchIDL(TEST_IDL_PROGRAM, rpcUrl);
+    const idlResult = await fetchIDL(TEST_IDL_PROGRAM, rpcUrl);
 
     var idlJson;
     try {
@@ -70,9 +70,9 @@ describe("upload-idl-anchor", () => {
   it("Write IDL Url", async () => {
     const url = "http://example.com";
 
-    await UploadIdlUrl(url, TEST_IDL_PROGRAM, keypair, rpcUrl, 0);
+    await uploadIdlUrl(url, TEST_IDL_PROGRAM, keypair, rpcUrl, 0);
 
-    const idlAccount = GetCanonicalIdlAddress(TEST_IDL_PROGRAM);
+    const idlAccount = getCanonicalIdlAddress(TEST_IDL_PROGRAM);
 
     const idl = await program.account.idlAccount.fetch(idlAccount);
     const accountInfo = await connection.getAccountInfo(idlAccount);
@@ -105,7 +105,7 @@ describe("upload-idl-anchor", () => {
       "https://upload.wikimedia.org/wikipedia/en/b/b9/Solana_logo.png";
     let buffer: Buffer = Buffer.from(LogoUrl, "utf8");
 
-    await UploadMetaDataBySeed(
+    await uploadMetaDataBySeed(
       buffer,
       TEST_IDL_PROGRAM,
       keypair,
@@ -114,7 +114,7 @@ describe("upload-idl-anchor", () => {
       "logo"
     );
 
-    const idlAccount = GetCanonicalAddressAddressBySeed(
+    const idlAccount = getCanonicalAddressAddressBySeed(
       TEST_IDL_PROGRAM,
       "logo"
     );
