@@ -3,10 +3,12 @@ import { Program } from "@coral-xyz/anchor";
 import { UploadIdlAnchor } from "../target/types/upload_idl_anchor";
 import {
   FetchIDL,
-  GetIdlAddress,
+  GetCanonicalAddressAddressBySeed,
+  GetCanonicalIdlAddress,
   UploadIdlByJsonPath,
   UploadIdlUrl,
-} from "./UploadIdl";
+  UploadMetaDataBySeed,
+} from "../js_sdk/UploadIdl";
 import { assert } from "chai";
 import { inflate } from "pako";
 import { Keypair, PublicKey } from "@solana/web3.js";
@@ -38,9 +40,9 @@ describe("upload-idl-anchor", () => {
     );
     await connection.confirmTransaction(airdropSig, "finalized");
 
-    await UploadIdlByJsonPath(IDL_PATH, TEST_IDL_PROGRAM, keypair, rpcUrl);
+    await UploadIdlByJsonPath(IDL_PATH, TEST_IDL_PROGRAM, keypair, rpcUrl, 0);
 
-    const idlAccount = GetIdlAddress(TEST_IDL_PROGRAM);
+    const idlAccount = GetCanonicalIdlAddress(TEST_IDL_PROGRAM);
 
     console.log("Idl account", idlAccount.toBase58());
     const accountInfo = await connection.getAccountInfo(idlAccount);
@@ -65,15 +67,14 @@ describe("upload-idl-anchor", () => {
     console.log("Parsed IDL JSON:", idlJson);
   });
 
-  it.only("Write Url", async () => {
+  it.only("Write IDL Url", async () => {
     const url = "http://example.com";
 
-    await UploadIdlUrl(url, TEST_IDL_PROGRAM, keypair, rpcUrl);
+    await UploadIdlUrl(url, TEST_IDL_PROGRAM, keypair, rpcUrl, 0);
 
-    const idlAccount = GetIdlAddress(TEST_IDL_PROGRAM);
+    const idlAccount = GetCanonicalIdlAddress(TEST_IDL_PROGRAM);
 
     const idl = await program.account.idlAccount.fetch(idlAccount);
-    const connection = anchor.getProvider().connection;
     const accountInfo = await connection.getAccountInfo(idlAccount);
 
     if (!accountInfo) {
@@ -89,6 +90,53 @@ describe("upload-idl-anchor", () => {
     assert.equal(
       decompressedUrl,
       url,
+      "The saved string should match the input URL"
+    );
+  });
+
+  it.only("Write program Logo Url", async () => {
+    const airdropSig = await connection.requestAirdrop(
+      keypair.publicKey,
+      1000000000
+    );
+    await connection.confirmTransaction(airdropSig, "finalized");
+
+    const LogoUrl =
+      "https://upload.wikimedia.org/wikipedia/en/b/b9/Solana_logo.png";
+    let buffer: Buffer = Buffer.from(LogoUrl, "utf8");
+
+    await UploadMetaDataBySeed(
+      buffer,
+      TEST_IDL_PROGRAM,
+      keypair,
+      rpcUrl,
+      0,
+      "logo"
+    );
+
+    const idlAccount = GetCanonicalAddressAddressBySeed(
+      TEST_IDL_PROGRAM,
+      "logo"
+    );
+
+    const idl = await program.account.idlAccount.fetch(idlAccount);
+    const accountInfo = await connection.getAccountInfo(idlAccount);
+
+    if (!accountInfo) {
+      console.error("IDL account not found!");
+      return;
+    }
+
+    const rawData = accountInfo.data.slice(44, 44 + idl.dataLen); // Skip metadata (44 bytes + 8 descriminator, 4 dataLen, 32 authority)
+    console.log("Raw data:", rawData);
+    const decompressedData = inflate(rawData);
+    console.log("Decompressed Data:", decompressedData);
+    const decompressedUrl = Buffer.from(decompressedData).toString("utf8");
+
+    console.log("Decompressed Url:", decompressedUrl);
+    assert.equal(
+      decompressedUrl,
+      LogoUrl,
       "The saved string should match the input URL"
     );
   });

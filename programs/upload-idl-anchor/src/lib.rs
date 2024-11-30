@@ -21,7 +21,7 @@ pub mod upload_idl_anchor {
         ShouldBeProgramAccount,
     }
 
-    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
+    pub fn initialize(ctx: Context<Initialize>, _seed: String) -> Result<()> {
         msg!("IDL account initialized: {:?}", ctx.program_id);
         
         msg!("Signer {:?}!", ctx.accounts.signer.key);              
@@ -100,11 +100,11 @@ pub mod upload_idl_anchor {
         Ok(())
     }
 
-    pub fn resize(_ctx: Context<Resize>, _len: u16) -> Result<()> {
+    pub fn resize(_ctx: Context<Resize>, _len: u16, _seed: String) -> Result<()> {
         Ok(())
     }
 
-    pub fn set_buffer(ctx: Context<IdlSetBuffer>) -> Result<()> {
+    pub fn set_buffer(ctx: Context<IdlSetBuffer>, _seed: String) -> Result<()> {
         ctx.accounts.idl.data_len = ctx.accounts.buffer.data_len;
 
         use IdlUploadTrailingData;
@@ -137,10 +137,11 @@ pub mod upload_idl_anchor {
 }
 
 #[derive(Accounts)]
+#[instruction(seed: String)]
 pub struct Initialize<'info> {
     #[account(
         init,
-        seeds = [b"idl", program_id.key.as_ref()],
+        seeds = [seed.as_ref(), program_id.key.as_ref()],
         bump,
         payer = signer,
         space = 8 + 32 + 4,
@@ -157,11 +158,12 @@ pub struct Initialize<'info> {
 }
 
 #[derive(Accounts)]
-#[instruction(len: u16)]
+// Seed can be dynamic. For IDL use "idl" as seed.
+#[instruction(len: u16, seed: String)]
 pub struct Resize<'info> {
     #[account(
         mut,
-        seeds = [b"idl", program_id.key.as_ref()],
+        seeds = [seed.as_ref(), program_id.key.as_ref()],
         bump,
         realloc = len as usize, 
         realloc::zero = true, 
@@ -205,13 +207,14 @@ pub struct WriteBuffer<'info> {
 
 // Accounts for upgrading the canonical IdlAccount with the buffer.
 #[derive(Accounts)]
+#[instruction(seed: String)]
 pub struct IdlSetBuffer<'info> {
     // The buffer with the new idl data.
     #[account(mut, constraint = buffer.authority == idl.authority)]
     pub buffer: Account<'info, IdlAccount>,
     // The idl account to be updated with the buffer's data.
     #[account(mut, 
-        seeds = [b"idl", program_id.key.as_ref()],
+        seeds = [seed.as_ref(), program_id.key.as_ref()],
         bump,
         has_one = authority,
         constraint = idl.authority == authority.key()

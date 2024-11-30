@@ -30,11 +30,13 @@ FetchIDL(programId);
 TODO:
 
 - Create JS library
-- Create Rust CLI
+- Create Rust CLI (assignee @wealthineer) 
 - Add delete authority instruction
 - Add change authority instruction
 - Add test case for bigger 10mb IDLs
-- Add priority fees to transactions
+- Add Support for non canonical IDLs 
+- Write Web3js@2 cli using codama (generated client is already in the codama folder)
+- Change tests to use jest and bankrun instead of mocha 
 
 Done:
 
@@ -48,3 +50,6 @@ Done:
 - Test case of < 10240 bytes IDL
 - Enable tests for other ppl using a devnet program and hardcoded key for tests
 - Remove anchor dependency from JS
+- Add priority fees to transactions
+- Add support for any program meta data using a dynamic seed string instead of hardcoded "idl"
+- Add Test case for uploading program Logo meta data 

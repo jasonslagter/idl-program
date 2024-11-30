@@ -11,32 +11,60 @@ const MAX_RESIZE_STEP = 10240;
 const BPF_LOADER_2_PROGRAM_ID = new PublicKey(
   "BPFLoaderUpgradeab1e11111111111111111111111"
 );
+const IDL_PROGRAM_ID = new PublicKey(
+  "idLB41CuMPpWZmQGGxpsxbyGDWWzono4JnFLJxQakrE"
+);
+const IDL_SEED = "idl";
+
+class TransactionConfig {
+  keypair: Keypair;
+  rpcUrl: string;
+  priorityFeesPerCU: number;
+}
 
 async function UploadIdlByJsonPath(
   idlPath: string,
   programId: PublicKey,
   keypair: Keypair,
-  rpcUrl: string
+  rpcUrl: string,
+  priorityFeesPerCU: number
 ) {
   let buffer: Buffer = fs.readFileSync(idlPath);
-  await InitIdl(buffer, programId, keypair, rpcUrl);
+  await UploadMetaDataBySeed(
+    buffer,
+    programId,
+    keypair,
+    rpcUrl,
+    priorityFeesPerCU,
+    IDL_SEED
+  );
 }
 
 async function UploadIdlUrl(
   url: string,
   programId: PublicKey,
   keypair: Keypair,
-  rpcUrl: string
+  rpcUrl: string,
+  priorityFeesPerCU: number
 ) {
   let buffer: Buffer = Buffer.from(url, "utf8");
-  await InitIdl(buffer, programId, keypair, rpcUrl);
+  await UploadMetaDataBySeed(
+    buffer,
+    programId,
+    keypair,
+    rpcUrl,
+    priorityFeesPerCU,
+    IDL_SEED
+  );
 }
 
-async function InitIdl(
+async function UploadMetaDataBySeed(
   buffer: Buffer,
   programId: PublicKey,
   keypair: Keypair,
-  rpcUrl: string
+  rpcUrl: string,
+  priorityFeesPerCU: number,
+  seed: string
 ) {
   const connection = new anchor.web3.Connection(rpcUrl, "confirmed");
   const provider = new anchor.AnchorProvider(
@@ -46,23 +74,50 @@ async function InitIdl(
   );
   anchor.setProvider(provider);
 
-  const idlAccount = GetIdlAddress(programId);
+  const idlAccount = GetCanonicalAddressAddressBySeed(programId, seed);
   console.log("Idl pda address", idlAccount.toBase58());
-  await InitializeIdlAccount(idlAccount, programId, keypair, rpcUrl);
+  await InitializeMetaDataBySeed(
+    idlAccount,
+    programId,
+    keypair,
+    rpcUrl,
+    priorityFeesPerCU,
+    seed
+  );
   console.log("Initialized Idl account");
-  const bufferAddress = await CreateBuffer(buffer, keypair, rpcUrl);
+  const bufferAddress = await CreateBuffer(
+    buffer,
+    keypair,
+    rpcUrl,
+    priorityFeesPerCU
+  );
   console.log("Buffer created");
-  await WriteBuffer(buffer, bufferAddress.publicKey, keypair, rpcUrl);
+  await WriteBuffer(
+    buffer,
+    bufferAddress.publicKey,
+    keypair,
+    rpcUrl,
+    priorityFeesPerCU
+  );
   console.log("Buffer written");
-  await SetBuffer(bufferAddress.publicKey, programId, keypair, rpcUrl);
+  await SetBuffer(
+    bufferAddress.publicKey,
+    programId,
+    keypair,
+    rpcUrl,
+    priorityFeesPerCU,
+    seed
+  );
   console.log("Buffer set and buffer closed");
 }
 
-async function InitializeIdlAccount(
+async function InitializeMetaDataBySeed(
   idlPdaAddress: PublicKey,
   programId: PublicKey,
   keypair: Keypair,
-  rpcUrl: string
+  rpcUrl: string,
+  priorityFeesPerCU: number,
+  seed: string
 ) {
   const connection = new anchor.web3.Connection(rpcUrl, "confirmed");
   const provider = new anchor.AnchorProvider(
@@ -73,9 +128,6 @@ async function InitializeIdlAccount(
   anchor.setProvider(provider);
   const program = new anchor.Program(IDL as UploadIdlAnchor, provider);
 
-  console.log("Provider pubkey: " + anchor.getProvider().publicKey.toBase58());
-  console.log("keypair pubkey: " + keypair.publicKey.toBase58());
-
   const idlAccountInfo = await connection.getAccountInfo(idlPdaAddress);
   if (!idlAccountInfo) {
     const [programDataAddress] = await PublicKey.findProgramAddress(
@@ -83,19 +135,37 @@ async function InitializeIdlAccount(
       BPF_LOADER_2_PROGRAM_ID
     );
 
-    const signature = await program.methods
-      .initialize()
+    const initializePdaInstruction = await program.methods
+      .initialize(seed)
       .accountsPartial({
         idl: idlPdaAddress,
         programId: programId,
         programData: programDataAddress,
       })
-      .rpc();
+      .instruction();
 
-    console.log("Signature", signature);
+    var getLatestBlockhash = await connection.getLatestBlockhash();
 
-    console.log("Idl account created", idlPdaAddress.toBase58());
-    await connection.confirmTransaction(signature, "confirmed");
+    var tx = new anchor.web3.Transaction();
+    if (priorityFeesPerCU > 0) {
+      const priorityFeeInstruction =
+        anchor.web3.ComputeBudgetProgram.setComputeUnitPrice({
+          microLamports: priorityFeesPerCU,
+        });
+      tx.add(priorityFeeInstruction);
+    }
+
+    tx.add(initializePdaInstruction);
+    tx.recentBlockhash = getLatestBlockhash.blockhash;
+    tx.feePayer = keypair.publicKey;
+    tx.sign(keypair);
+    provider.wallet.signTransaction(tx);
+
+    var signature = await connection.sendRawTransaction(tx.serialize());
+    console.log("Create IDL PDA signature", signature);
+    console.log("Idl account created", keypair.publicKey.toBase58());
+
+    await connection.confirmTransaction(signature);
   } else {
     console.log("Idl account already exists");
   }
@@ -104,7 +174,8 @@ async function InitializeIdlAccount(
 async function CreateBuffer(
   buffer: Buffer,
   keypair: Keypair,
-  rpcUrl: string
+  rpcUrl: string,
+  priorityFeesPerCU: number
 ): Promise<Keypair | null> {
   const connection = new anchor.web3.Connection(rpcUrl, "confirmed");
   const provider = new anchor.AnchorProvider(
@@ -137,6 +208,13 @@ async function CreateBuffer(
   var getLatestBlockhash = await connection.getLatestBlockhash();
 
   var tx = new anchor.web3.Transaction();
+  if (priorityFeesPerCU > 0) {
+    const priorityFeeInstruction =
+      anchor.web3.ComputeBudgetProgram.setComputeUnitPrice({
+        microLamports: priorityFeesPerCU,
+      });
+    tx.add(priorityFeeInstruction);
+  }
   tx.add(createAccountInstruction);
   tx.add(createBufferInstruction);
   tx.recentBlockhash = getLatestBlockhash.blockhash;
@@ -158,7 +236,8 @@ async function WriteBuffer(
   buffer: Buffer,
   bufferAddress: PublicKey,
   keypair: Keypair,
-  rpcUrl: string
+  rpcUrl: string,
+  priorityFeesPerCU: number
 ) {
   const connection = new anchor.web3.Connection(rpcUrl, "confirmed");
   const provider = new anchor.AnchorProvider(
@@ -176,24 +255,47 @@ async function WriteBuffer(
   while (offset < idlBytes.length) {
     const chunk = idlBytes.subarray(offset, offset + CHUNK_SIZE); // Use subarray for Uint8Array
 
-    const tx = await program.methods
+    const writeBufferInstruction = await program.methods
       .writeBuffer(Buffer.from(chunk))
       .accountsPartial({
         buffer: bufferAddress,
       })
-      .rpc();
+      .instruction();
 
-    console.log("sig", tx);
+    var getLatestBlockhash = await connection.getLatestBlockhash();
+
+    var tx = new anchor.web3.Transaction();
+    if (priorityFeesPerCU > 0) {
+      const priorityFeeInstruction =
+        anchor.web3.ComputeBudgetProgram.setComputeUnitPrice({
+          microLamports: priorityFeesPerCU,
+        });
+      tx.add(priorityFeeInstruction);
+    }
+    tx.add(writeBufferInstruction);
+    tx.recentBlockhash = getLatestBlockhash.blockhash;
+    tx.feePayer = keypair.publicKey;
+    tx.sign(keypair);
+    provider.wallet.signTransaction(tx);
+
+    var signature = await connection.sendRawTransaction(tx.serialize());
+    console.log("Write data chunk: ", signature);
+
+    await connection.confirmTransaction(signature);
+
     offset += CHUNK_SIZE;
   }
-  console.log("Write buffer successfully!");
+
+  console.log("Write buffer was successfully!");
 }
 
 async function SetBuffer(
   bufferAddress: PublicKey,
   programId: PublicKey,
   keypair: Keypair,
-  rpcUrl: string
+  rpcUrl: string,
+  priorityFeesPerCU: number,
+  seed: string
 ) {
   const connection = new anchor.web3.Connection(rpcUrl, "confirmed");
   const provider = new anchor.AnchorProvider(
@@ -204,7 +306,7 @@ async function SetBuffer(
   anchor.setProvider(provider);
   const program = new anchor.Program(IDL as UploadIdlAnchor, provider);
 
-  const idlAccount = GetIdlAddress(programId);
+  const idlAccount = GetCanonicalAddressAddressBySeed(programId, seed);
 
   const idlAccountAccountInfo = await connection.getAccountInfo(idlAccount);
   const bufferAccountAccountInfo = await connection.getAccountInfo(
@@ -216,11 +318,21 @@ async function SetBuffer(
 
   var tx = new anchor.web3.Transaction();
 
-  console.log("IDL account size", idlAccountSize);
-  console.log("Buffer account size", bufferAccountSize);
+  console.log(
+    `IDL account size ${idlAccountSize} Buffer account size ${bufferAccountSize}`
+  );
+
+  if (priorityFeesPerCU > 0) {
+    const priorityFeeInstruction =
+      anchor.web3.ComputeBudgetProgram.setComputeUnitPrice({
+        microLamports: priorityFeesPerCU,
+      });
+    tx.add(priorityFeeInstruction);
+  }
+
   if (bufferAccountSize < idlAccountSize) {
     const resizeInstruction = await program.methods
-      .resize(bufferAccountSize)
+      .resize(bufferAccountSize, seed)
       .accountsPartial({
         idl: idlAccount,
         programId: programId,
@@ -236,7 +348,7 @@ async function SetBuffer(
       const chunkSize = Math.min(MAX_RESIZE_STEP, leftOverToResize);
       idlAccountSize += chunkSize;
       const resizeInstruction = await program.methods
-        .resize(idlAccountSize)
+        .resize(idlAccountSize, seed)
         .accountsPartial({
           idl: idlAccount,
           programId: programId,
@@ -252,7 +364,7 @@ async function SetBuffer(
   }
 
   const setBufferInstruction = await program.methods
-    .setBuffer()
+    .setBuffer(seed)
     .accountsPartial({
       buffer: bufferAddress,
       programId: programId,
@@ -282,10 +394,17 @@ async function SetBuffer(
   console.log("Signature set buffer", signature);
 }
 
-function GetIdlAddress(programId: PublicKey): PublicKey {
+function GetCanonicalIdlAddress(programId: PublicKey): PublicKey {
+  return GetCanonicalAddressAddressBySeed(programId, IDL_SEED);
+}
+
+function GetCanonicalAddressAddressBySeed(
+  programId: PublicKey,
+  seed: string
+): PublicKey {
   const [idlAccount] = anchor.web3.PublicKey.findProgramAddressSync(
-    [Buffer.from("idl", "utf8"), programId.toBuffer()],
-    new PublicKey("idLB41CuMPpWZmQGGxpsxbyGDWWzono4JnFLJxQakrE")
+    [Buffer.from(seed, "utf8"), programId.toBuffer()],
+    new PublicKey(IDL_PROGRAM_ID)
   );
   return idlAccount;
 }
@@ -296,7 +415,7 @@ async function FetchIDL(
 ): Promise<string | null> {
   const connection = new anchor.web3.Connection(rpcUrl, "confirmed");
 
-  const idlAccount = GetIdlAddress(programId);
+  const idlAccount = GetCanonicalAddressAddressBySeed(programId, IDL_SEED);
   const accountInfo = await connection.getAccountInfo(idlAccount);
 
   // If we get the IDL account we can not access the additional data bytes at
@@ -330,12 +449,14 @@ async function FetchIDL(
 }
 
 export {
-  //InitializeIdlAccount,
-  //CreateBuffer,
-  //WriteBuffer,
-  //SetBuffer,
   FetchIDL,
   UploadIdlByJsonPath,
   UploadIdlUrl,
-  GetIdlAddress,
+  GetCanonicalIdlAddress,
+  GetCanonicalAddressAddressBySeed,
+  UploadMetaDataBySeed
+  // Not exported to not confuse people
+  //CreateBuffer,
+  //WriteBuffer,
+  //SetBuffer,
 };
