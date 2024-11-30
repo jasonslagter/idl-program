@@ -8,7 +8,7 @@ import { inflate, deflate } from "pako";
 const METADATA_OFFSET = 44;
 const CHUNK_SIZE = 900;
 const MAX_RESIZE_STEP = 10240;
-const CONFIRMATION_COMMITMENT: anchor.web3.Commitment = 'confirmed';
+const CONFIRMATION_COMMITMENT: anchor.web3.Commitment = "confirmed";
 const DATA_LENGTH_OFFSET = 40;
 
 const BPF_LOADER_2_PROGRAM_ID = new PublicKey(
@@ -18,6 +18,7 @@ const IDL_PROGRAM_ID = new PublicKey(
   "idLB41CuMPpWZmQGGxpsxbyGDWWzono4JnFLJxQakrE"
 );
 const IDL_SEED = "idl";
+const PROGRAM_METADATA_SEED = "metadata";
 
 interface TransactionConfig {
   keypair: Keypair;
@@ -31,10 +32,30 @@ interface ConnectionConfig {
   program: anchor.Program<UploadIdlAnchor>;
 }
 
+interface ProgramMetaData {
+  name: string;
+  logo?: string;
+  description?: string;
+  notification?: string;
+  sdk?: string;
+  version?: string;
+  project_url?: string;
+  contacts?: string[];
+  policy?: string;
+  preferred_languages?: string[];
+  encryption?: string;
+  source_code?: string;
+  source_release?: string;
+  source_revision?: string;
+  auditors?: string[] | string;
+  acknowledgements?: string;
+  expiry?: string;
+}
+
 class IDLError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = 'IDLError';
+    this.name = "IDLError";
   }
 }
 
@@ -61,7 +82,7 @@ async function uploadIdlByJsonPath(
     throw new IDLError("Priority fees cannot be negative");
   }
   let buffer: Buffer = fs.readFileSync(idlPath);
-  await uploadMetaDataBySeed(
+  await uploadGenericDataBySeed(
     buffer,
     programId,
     keypair,
@@ -79,7 +100,7 @@ async function uploadIdlUrl(
   priorityFeesPerCU: number
 ) {
   let buffer: Buffer = Buffer.from(url, "utf8");
-  await uploadMetaDataBySeed(
+  await uploadGenericDataBySeed(
     buffer,
     programId,
     keypair,
@@ -89,7 +110,7 @@ async function uploadIdlUrl(
   );
 }
 
-async function uploadMetaDataBySeed(
+async function uploadGenericDataBySeed(
   buffer: Buffer,
   programId: PublicKey,
   keypair: Keypair,
@@ -105,7 +126,7 @@ async function uploadMetaDataBySeed(
   );
   anchor.setProvider(provider);
 
-  const idlAccount = getCanonicalAddressAddressBySeed(programId, seed);
+  const idlAccount = getCanonicalPdaAddressBySeed(programId, seed);
   console.log("Idl pda address", idlAccount.toBase58());
   await initializeMetaDataBySeed(
     idlAccount,
@@ -337,7 +358,7 @@ async function setBuffer(
   anchor.setProvider(provider);
   const program = new anchor.Program(IDL as UploadIdlAnchor, provider);
 
-  const idlAccount = getCanonicalAddressAddressBySeed(programId, seed);
+  const idlAccount = getCanonicalPdaAddressBySeed(programId, seed);
 
   const idlAccountAccountInfo = await connection.getAccountInfo(idlAccount);
   const bufferAccountAccountInfo = await connection.getAccountInfo(
@@ -426,10 +447,10 @@ async function setBuffer(
 }
 
 function getCanonicalIdlAddress(programId: PublicKey): PublicKey {
-  return getCanonicalAddressAddressBySeed(programId, IDL_SEED);
+  return getCanonicalPdaAddressBySeed(programId, IDL_SEED);
 }
 
-function getCanonicalAddressAddressBySeed(
+function getCanonicalPdaAddressBySeed(
   programId: PublicKey,
   seed: string
 ): PublicKey {
@@ -446,7 +467,7 @@ async function fetchIDL(
 ): Promise<string | null> {
   const connection = new anchor.web3.Connection(rpcUrl, "confirmed");
 
-  const idlAccount = getCanonicalAddressAddressBySeed(programId, IDL_SEED);
+  const idlAccount = getCanonicalPdaAddressBySeed(programId, IDL_SEED);
   const accountInfo = await connection.getAccountInfo(idlAccount);
 
   // If we get the IDL account we can not access the additional data bytes at
@@ -479,10 +500,7 @@ async function fetchIDL(
   return idlString;
 }
 
-function setupConnection(
-  rpcUrl: string,
-  keypair: Keypair
-): ConnectionConfig {
+function setupConnection(rpcUrl: string, keypair: Keypair): ConnectionConfig {
   const connection = new anchor.web3.Connection(rpcUrl, "confirmed");
   const provider = new anchor.AnchorProvider(
     connection,
@@ -491,7 +509,7 @@ function setupConnection(
   );
   anchor.setProvider(provider);
   const program = new anchor.Program(IDL as UploadIdlAnchor, provider);
-  
+
   return { connection, provider, program };
 }
 
@@ -508,11 +526,11 @@ async function createTransaction(
       });
     tx.add(priorityFeeInstruction);
   }
-  
+
   const getLatestBlockhash = await connection.getLatestBlockhash();
   tx.recentBlockhash = getLatestBlockhash.blockhash;
   tx.feePayer = feePayer;
-  
+
   return tx;
 }
 
@@ -525,19 +543,206 @@ async function withRetry<T>(
     return await operation();
   } catch (error) {
     if (retries > 0) {
-      await new Promise(resolve => setTimeout(resolve, delay));
+      await new Promise((resolve) => setTimeout(resolve, delay));
       return withRetry(operation, retries - 1, delay * 2);
     }
     throw error;
   }
 }
 
+/**
+ * Uploads program metadata for a program
+ * @param {ProgramMetaData} metadata - Program metadata object
+ * @param {PublicKey} programId - Program ID
+ * @param {Keypair} keypair - Keypair for transaction signing
+ * @param {string} rpcUrl - RPC URL for the connection
+ * @param {number} priorityFeesPerCU - Priority fees per compute unit
+ */
+async function uploadProgramMetadata(
+  metadata: ProgramMetaData,
+  programId: PublicKey,
+  keypair: Keypair,
+  rpcUrl: string,
+  priorityFeesPerCU: number
+) {
+  // Validate required fields
+  if (!metadata.name) {
+    throw new IDLError("Missing required metadata fields");
+  }
+
+  // Validate date format if expiry is provided
+  if (metadata.expiry && !/^\d{4}-\d{2}-\d{2}$/.test(metadata.expiry)) {
+    throw new IDLError("Expiry date must be in YYYY-MM-DD format");
+  }
+
+  // Convert metadata to buffer
+  const metadataBuffer = Buffer.from(JSON.stringify(metadata), "utf8");
+
+  // Upload using existing metadata upload function with "metadata" seed
+  await uploadGenericDataBySeed(
+    metadataBuffer,
+    programId,
+    keypair,
+    rpcUrl,
+    priorityFeesPerCU,
+    PROGRAM_METADATA_SEED
+  );
+}
+
+/**
+ * Fetches program metadata for a program
+ * @param {PublicKey} programId - Program ID
+ * @param {string} rpcUrl - RPC URL for the connection
+ * @returns {Promise<ProgramMetaData>} The program metadata
+ */
+async function fetchProgramMetadata(
+  programId: PublicKey,
+  rpcUrl: string
+): Promise<ProgramMetaData> {
+  const connection = new anchor.web3.Connection(
+    rpcUrl,
+    CONFIRMATION_COMMITMENT
+  );
+
+  const metadataAccount = getCanonicalPdaAddressBySeed(
+    programId,
+    PROGRAM_METADATA_SEED
+  );
+  const accountInfo = await connection.getAccountInfo(metadataAccount);
+
+  if (!accountInfo) {
+    throw new IDLError(
+      `Metadata not found for program ${programId.toBase58()}`
+    );
+  }
+
+  const dataLenBytes = accountInfo.data.slice(
+    DATA_LENGTH_OFFSET,
+    METADATA_OFFSET
+  );
+  const dataLength = new DataView(dataLenBytes.buffer).getUint32(0, true);
+
+  const compressedData = accountInfo.data.slice(
+    METADATA_OFFSET,
+    METADATA_OFFSET + dataLength
+  );
+
+  const decompressedData = inflate(compressedData);
+  const metadataString = new TextDecoder("utf-8").decode(decompressedData);
+
+  try {
+    return JSON.parse(metadataString) as ProgramMetaData;
+  } catch (error) {
+    throw new IDLError("Failed to parse program metadata");
+  }
+}
+
+/**
+ * Uploads program metadata from a JSON file path
+ * @param {string} metadataPath - Path to the metadata JSON file
+ * @param {PublicKey} programId - Program ID
+ * @param {Keypair} keypair - Keypair for transaction signing
+ * @param {string} rpcUrl - RPC URL for the connection
+ * @param {number} priorityFeesPerCU - Priority fees per compute unit
+ * @throws {IDLError} If file not found or upload fails
+ */
+async function uploadProgramMetadataByJsonPath(
+  metadataPath: string,
+  programId: PublicKey,
+  keypair: Keypair,
+  rpcUrl: string,
+  priorityFeesPerCU: number
+) {
+  if (!fs.existsSync(metadataPath)) {
+    throw new IDLError(`File not found: ${metadataPath}`);
+  }
+  if (priorityFeesPerCU < 0) {
+    throw new IDLError("Priority fees cannot be negative");
+  }
+
+  const fileContent = fs.readFileSync(metadataPath, "utf8");
+  let metadata: ProgramMetaData;
+  try {
+    metadata = JSON.parse(fileContent) as ProgramMetaData;
+  } catch (error) {
+    throw new IDLError("Invalid JSON format in metadata file");
+  }
+
+  await uploadProgramMetadata(
+    metadata,
+    programId,
+    keypair,
+    rpcUrl,
+    priorityFeesPerCU
+  );
+}
+
+/**
+ * Uploads program metadata from a URL
+ * @param {string} url - URL pointing to the metadata JSON
+ * @param {PublicKey} programId - Program ID
+ * @param {Keypair} keypair - Keypair for transaction signing
+ * @param {string} rpcUrl - RPC URL for the connection
+ * @param {number} priorityFeesPerCU - Priority fees per compute unit
+ */
+async function uploadProgramMetadataByUrl(
+  url: string,
+  programId: PublicKey,
+  keypair: Keypair,
+  rpcUrl: string,
+  priorityFeesPerCU: number
+) {
+  try {
+    // Check that the URL is actually a metadata json
+    // If you want to upload some generic data use uploadGenericDataBySeed instead
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new IDLError(
+        `Failed to fetch metadata from URL: ${response.statusText}`
+      );
+    }
+    const metadata = (await response.json()) as ProgramMetaData;
+
+    // Validate required fields
+    if (!metadata.name) {
+      throw new IDLError("Missing required metadata fields");
+    }
+
+    // Validate date format if expiry is provided
+    if (metadata.expiry && !/^\d{4}-\d{2}-\d{2}$/.test(metadata.expiry)) {
+      throw new IDLError("Expiry date must be in YYYY-MM-DD format");
+    }
+
+    // Convert metadata to buffer
+    const metadataUrlBuffer = Buffer.from(url, "utf8");
+
+    await uploadGenericDataBySeed(
+      metadataUrlBuffer,
+      programId,
+      keypair,
+      rpcUrl,
+      priorityFeesPerCU,
+      PROGRAM_METADATA_SEED
+    );
+  } catch (error) {
+    if (error instanceof IDLError) {
+      throw error;
+    }
+    throw new IDLError(`Failed to process metadata from URL: ${error.message}`);
+  }
+}
+
 export {
-  fetchIDL,
   uploadIdlByJsonPath,
   uploadIdlUrl,
+  uploadProgramMetadataByJsonPath,
+  uploadProgramMetadataByUrl,
+  fetchIDL,
   getCanonicalIdlAddress,
-  getCanonicalAddressAddressBySeed,
-  uploadMetaDataBySeed,
-  setupConnection
+  getCanonicalPdaAddressBySeed,
+  uploadGenericDataBySeed,
+  setupConnection,
+  uploadProgramMetadata,
+  fetchProgramMetadata,
+  ProgramMetaData,
 };

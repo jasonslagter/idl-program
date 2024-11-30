@@ -104,6 +104,18 @@ pub mod upload_idl_anchor {
         Ok(())
     }
 
+    // TODO: test this 
+    pub fn remove_authority(ctx: Context<Initialize>) -> Result<()> {
+        ctx.accounts.idl.authority = ERASED_AUTHORITY;
+        Ok(())
+    }
+
+    // TODO: test this 
+    pub fn change_authority(ctx: Context<Initialize>) -> Result<()> {
+        ctx.accounts.idl.authority = *ctx.accounts.signer.key;
+        Ok(())
+    }
+
     pub fn set_buffer(ctx: Context<IdlSetBuffer>, _seed: String) -> Result<()> {
         ctx.accounts.idl.data_len = ctx.accounts.buffer.data_len;
 

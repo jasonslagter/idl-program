@@ -3,17 +3,18 @@ import { Program } from "@coral-xyz/anchor";
 import { UploadIdlAnchor } from "../target/types/upload_idl_anchor";
 import {
   fetchIDL,
-  getCanonicalAddressAddressBySeed,
+  fetchProgramMetadata,
   getCanonicalIdlAddress,
   uploadIdlByJsonPath,
   uploadIdlUrl,
-  uploadMetaDataBySeed,
+  uploadProgramMetadataByJsonPath,
 } from "../js_sdk/ProgramMetaData";
 import { assert } from "chai";
 import { inflate } from "pako";
 import { Keypair, PublicKey } from "@solana/web3.js";
 
 const IDL_PATH = "./tests/testidl.json";
+const META_DATA_JSON = "./tests/metadata.json";
 
 const TEST_IDL_PROGRAM = new PublicKey(
   "6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A"
@@ -33,13 +34,42 @@ const keypair = Keypair.fromSecretKey(
 );
 
 describe("upload-idl-anchor", () => {
-  it.only("Write IDL json !", async () => {
+  before(async () => {
     const airdropSig = await connection.requestAirdrop(
       keypair.publicKey,
       1000000000
     );
-    await connection.confirmTransaction(airdropSig, "finalized");
+    await connection.confirmTransaction(airdropSig, "confirmed");
+  });
 
+  it.only("Write IDL Url", async () => {
+    const url = "http://example.com";
+
+    await uploadIdlUrl(url, TEST_IDL_PROGRAM, keypair, rpcUrl, 0);
+
+    const idlAccount = getCanonicalIdlAddress(TEST_IDL_PROGRAM);
+
+    const idl = await program.account.idlAccount.fetch(idlAccount);
+    const accountInfo = await connection.getAccountInfo(idlAccount);
+
+    if (!accountInfo) {
+      console.error("IDL account not found!");
+      return;
+    }
+
+    const rawData = accountInfo.data.slice(44, 44 + idl.dataLen); // Skip metadata (44 bytes + 8 discriminator, 4 dataLen, 32 authority)
+    const decompressedData = inflate(rawData);
+    const decompressedUrl = Buffer.from(decompressedData).toString("utf8");
+
+    console.log("Decompressed Url:", decompressedUrl);
+    assert.equal(
+      decompressedUrl,
+      url,
+      "The saved string should match the input URL"
+    );
+  });
+
+  it.only("Write IDL json !", async () => {
     await uploadIdlByJsonPath(IDL_PATH, TEST_IDL_PROGRAM, keypair, rpcUrl, 0);
 
     const idlAccount = getCanonicalIdlAddress(TEST_IDL_PROGRAM);
@@ -67,75 +97,47 @@ describe("upload-idl-anchor", () => {
     console.log("Parsed IDL JSON:", idlJson);
   });
 
-  it("Write IDL Url", async () => {
-    const url = "http://example.com";
+  it.only("Write program metadata json", async () => {
+    const LogoUrl =
+      "https://upload.wikimedia.org/wikipedia/en/b/b9/Solana_logo.png";
 
-    await uploadIdlUrl(url, TEST_IDL_PROGRAM, keypair, rpcUrl, 0);
+    await uploadProgramMetadataByJsonPath(
+      META_DATA_JSON,
+      TEST_IDL_PROGRAM,
+      keypair,
+      rpcUrl,
+      0
+    );
 
-    const idlAccount = getCanonicalIdlAddress(TEST_IDL_PROGRAM);
+    const metadata = await fetchProgramMetadata(TEST_IDL_PROGRAM, rpcUrl);
 
-    const idl = await program.account.idlAccount.fetch(idlAccount);
-    const accountInfo = await connection.getAccountInfo(idlAccount);
+    console.log("Metadata", metadata);
 
-    if (!accountInfo) {
-      console.error("IDL account not found!");
-      return;
-    }
-
-    const rawData = accountInfo.data.slice(44, 44 + idl.dataLen); // Skip metadata (44 bytes + 8 descriminator, 4 dataLen, 32 authority)
-    const decompressedData = inflate(rawData);
-    const decompressedUrl = Buffer.from(decompressedData).toString("utf8");
-
-    console.log("Decompressed Url:", decompressedUrl);
     assert.equal(
-      decompressedUrl,
-      url,
+      metadata.logo,
+      LogoUrl,
       "The saved string should match the input URL"
     );
   });
 
-  it.only("Write program Logo Url", async () => {
-    const airdropSig = await connection.requestAirdrop(
-      keypair.publicKey,
-      1000000000
-    );
-    await connection.confirmTransaction(airdropSig, "finalized");
-
+  it.only("Test change and remove authority", async () => {
     const LogoUrl =
       "https://upload.wikimedia.org/wikipedia/en/b/b9/Solana_logo.png";
-    let buffer: Buffer = Buffer.from(LogoUrl, "utf8");
 
-    await uploadMetaDataBySeed(
-      buffer,
+    await uploadProgramMetadataByJsonPath(
+      META_DATA_JSON,
       TEST_IDL_PROGRAM,
       keypair,
       rpcUrl,
-      0,
-      "logo"
+      0
     );
 
-    const idlAccount = getCanonicalAddressAddressBySeed(
-      TEST_IDL_PROGRAM,
-      "logo"
-    );
+    const metadata = await fetchProgramMetadata(TEST_IDL_PROGRAM, rpcUrl);
 
-    const idl = await program.account.idlAccount.fetch(idlAccount);
-    const accountInfo = await connection.getAccountInfo(idlAccount);
+    console.log("Metadata", metadata);
 
-    if (!accountInfo) {
-      console.error("IDL account not found!");
-      return;
-    }
-
-    const rawData = accountInfo.data.slice(44, 44 + idl.dataLen); // Skip metadata (44 bytes + 8 descriminator, 4 dataLen, 32 authority)
-    console.log("Raw data:", rawData);
-    const decompressedData = inflate(rawData);
-    console.log("Decompressed Data:", decompressedData);
-    const decompressedUrl = Buffer.from(decompressedData).toString("utf8");
-
-    console.log("Decompressed Url:", decompressedUrl);
     assert.equal(
-      decompressedUrl,
+      metadata.logo,
       LogoUrl,
       "The saved string should match the input URL"
     );

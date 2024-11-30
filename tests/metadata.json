@@ -1,0 +1,23 @@
+{
+  "name": "MyProgramName",
+  "logo": "https://upload.wikimedia.org/wikipedia/en/b/b9/Solana_logo.png",
+  "description": "Example program for meta data",
+  "notification": "On the first of january we will release a new version! Please update your SDKS!!!!",
+  "sdk": "https://github.com/solana-developers/js_sdk",
+  "project_url": "https://github.com/solana-developers/",
+  "contacts": [
+    "email:security@example.com",
+    "discord:MyProgram#1234",
+    "twitter:@MyProgram"
+  ],
+  "policy": "https://example.com/security-policy",
+  "preferred_languages": ["en", "de"],
+  "encryption": "https://example.com/pgp-key",
+  "source_code": "https://github.com/solana-developers/",
+  "source_release": "v0.1.0",
+  "source_revision": "abc123def456",
+  "auditors": ["Audit Firm A", "Security Researcher B"],
+  "acknowledgements": "https://example.com/security-acknowledgements",
+  "expiry": "2024-12-31",
+  "version": "0.1.0"
+}
