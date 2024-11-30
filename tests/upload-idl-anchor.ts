@@ -8,7 +8,7 @@ import {
   UploadIdlByJsonPath,
   UploadIdlUrl,
   UploadMetaDataBySeed,
-} from "../js_sdk/UploadIdl";
+} from "../js_sdk/ProgramMetaData";
 import { assert } from "chai";
 import { inflate } from "pako";
 import { Keypair, PublicKey } from "@solana/web3.js";
@@ -67,7 +67,7 @@ describe("upload-idl-anchor", () => {
     console.log("Parsed IDL JSON:", idlJson);
   });
 
-  it.only("Write IDL Url", async () => {
+  it("Write IDL Url", async () => {
     const url = "http://example.com";
 
     await UploadIdlUrl(url, TEST_IDL_PROGRAM, keypair, rpcUrl, 0);
