@@ -118,11 +118,12 @@ FetchMetadata(programId);
 ## TODO
 
 - js v2 needed?
-- move upgrade authority to multisig and deploy program to mainnet
 - Create Rust CLI (assignee @wealthineer)
-- Add Support for non canonical PDAs. Needed? Will make the program more complex. 
-- Add test case for bigger 10mb IDLs. 
+- Add Support for non canonical PDAs. Needed? Will make the program more complex.
+- Add test case for bigger 10mb IDLs
 - Write Web3js@2 cli using codama (generated client is already in the codama folder) (Good first issue)
+- add fetchIDL and fetchMetadata
+- add generic data upload to js cli
 
 ## Done
 

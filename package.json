@@ -6,7 +6,7 @@
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.30.1",
-    "my-idl-test": "^0.0.13",
+    "my-idl-test": "^0.0.17",
     "pako": "^2.1.0"
   },
   "devDependencies": {

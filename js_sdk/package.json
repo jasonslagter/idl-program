@@ -1,7 +1,7 @@
 {
   "name": "my-idl-test",
   "description": "make your package easier to find on the npm website",
-  "version": "0.0.13",
+  "version": "0.0.18",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/solana-developers/idl-program.git"
@@ -24,6 +24,7 @@
     "lint:fix": "prettier */*.js \"*/**/*{.js,.ts}\" -w",
     "lint": "prettier */*.js \"*/**/*{.js,.ts}\" --check",
     "build": "tsc",
+    "cli": "ts-node src/cli.ts",
     "prepare": "npm run build"
   },
   "dependencies": {
