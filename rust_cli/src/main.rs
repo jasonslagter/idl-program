@@ -30,6 +30,26 @@ fn main() -> Result<()> {
                 }
             }
         }
+        ("metadata", Some(metadata_matches)) => {
+            match metadata_matches.subcommand() {
+                ("upload", Some(upload_matches)) => {
+                    let metadata_path = upload_matches.value_of("metadata-path").unwrap();
+                    let program_id = upload_matches.value_of("program-id").unwrap();
+                    let keypair_path = upload_matches.value_of("keypair");
+                    let priority_fees_per_cu = upload_matches
+                        .value_of("priority-fees-per-cu")
+                        .unwrap_or("0")
+                        .parse::<u64>()
+                        .map_err(|_| anyhow!("Invalid priority fees value"))?;
+                    
+                    commands::idl::upload_metadata_by_json_path(metadata_path, program_id, keypair_path, priority_fees_per_cu)
+                }
+                _ => {
+                    println!("Unknown metadata command. Use --help to see available commands");
+                    Ok(())
+                }
+            }
+        }
         _ => {
             println!("Please use --help to see available commands");
             Ok(())
