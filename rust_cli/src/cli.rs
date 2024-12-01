@@ -74,6 +74,22 @@ pub fn get_clap_app() -> App<'static, 'static> {
                                 .default_value("0")
                         )
                 )
+                .subcommand(
+                    SubCommand::with_name("download")
+                        .about("Download IDL to file")
+                        .arg(
+                            Arg::with_name("program-id")
+                                .help("Program ID")
+                                .required(true)
+                                .index(1)
+                        )
+                        .arg(
+                            Arg::with_name("output")
+                                .help("Output file path (optional, defaults to idl.json)")
+                                .required(false)
+                                .index(2)
+                        )
+                )
         )
         .subcommand(
             SubCommand::with_name("metadata")
@@ -142,6 +158,22 @@ pub fn get_clap_app() -> App<'static, 'static> {
                                 .long("priority-fees")
                                 .takes_value(true)
                                 .default_value("0")
+                        )
+                )
+                .subcommand(
+                    SubCommand::with_name("download")
+                        .about("Download Metadata to file")
+                        .arg(
+                            Arg::with_name("program-id")
+                                .help("Program ID")
+                                .required(true)
+                                .index(1)
+                        )
+                        .arg(
+                            Arg::with_name("output")
+                                .help("Output file path (optional, defaults to metadata.json)")
+                                .required(false)
+                                .index(2)
                         )
                 )
         )

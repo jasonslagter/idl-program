@@ -11,6 +11,7 @@ use solana_sdk::{
     compute_budget::ComputeBudgetInstruction,
 };
 use std::io::Write;
+use std::io::Read;
 use std::{str::FromStr, fs};
 use crate::codama_sdk::instructions::{Resize, ResizeInstructionArgs};
 use crate::config::get_user_config;
@@ -25,6 +26,7 @@ use crate::codama_sdk::{
     programs::UPLOAD_IDL_ANCHOR_ID,
 };
 use reqwest::blocking::Client;
+use flate2::read::GzDecoder;
 
 const IDL_SEED: &str = "idl";
 const METADATA_SEED: &str = "metadata";
@@ -447,6 +449,62 @@ fn set_and_close_buffer(
     println!("Buffer set and closed successfully!");
     println!("Final signature: {}", signature);
     Ok(())
+}
+
+pub fn download_data_to_file(
+    program_id: &str,
+    output_path: &str,
+    seed: &str,
+) -> Result<()> {
+    let (_, rpc_client) = get_user_config()?;
+    
+    // Parse program ID
+    let program_pubkey = Pubkey::from_str(program_id)
+        .map_err(|e| anyhow!("Invalid program ID: {}", e))?;
+
+    // Get account address
+    let (account_address, _) = Pubkey::find_program_address(
+        &[seed.as_bytes(), program_pubkey.as_ref()],
+        &UPLOAD_IDL_ANCHOR_ID,
+    );
+
+    // Get account data
+    let account = rpc_client.get_account(&account_address)
+        .map_err(|e| anyhow!("Failed to get account data: {}", e))?;
+
+    // Get data length from account (4 bytes at offset 40)
+    let data_len_bytes = account.data[METADATA_OFFSET - 4..METADATA_OFFSET].try_into()
+        .map_err(|_| anyhow!("Failed to read data length"))?;
+    let data_length = u32::from_le_bytes(data_len_bytes);
+
+    // Get compressed data
+    let compressed_data = &account.data[METADATA_OFFSET..METADATA_OFFSET + data_length as usize];
+
+    // Decompress data
+    let mut decoder = GzDecoder::new(compressed_data);
+    let mut json_data = Vec::new();
+    decoder.read_to_end(&mut json_data)?;
+
+    // Write to file
+    fs::write(output_path, json_data)
+        .map_err(|e| anyhow!("Failed to write to file: {}", e))?;
+
+    println!("Successfully downloaded and saved data to {}", output_path);
+    Ok(())
+}
+
+pub fn download_idl_to_file(
+    program_id: &str,
+    output_path: &str,
+) -> Result<()> {
+    download_data_to_file(program_id, output_path, IDL_SEED)
+}
+
+pub fn download_metadata_to_file(
+    program_id: &str,
+    output_path: &str,
+) -> Result<()> {
+    download_data_to_file(program_id, output_path, METADATA_SEED)
 }
 
 

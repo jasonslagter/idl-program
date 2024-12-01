@@ -36,6 +36,13 @@ fn main() -> Result<()> {
                     
                     commands::idl::upload_idl_by_json_url(url, program_id, keypair_path, priority_fees_per_cu)
                 }
+                ("download", Some(download_matches)) => {
+                    let program_id = download_matches.value_of("program-id").unwrap();
+                    let output_path = download_matches
+                        .value_of("output")
+                        .unwrap_or("idl.json");
+                    commands::idl::download_idl_to_file(program_id, output_path)
+                }
                 _ => {
                     println!("Unknown IDL command. Use --help to see available commands");
                     Ok(())
@@ -67,6 +74,13 @@ fn main() -> Result<()> {
                         .map_err(|_| anyhow!("Invalid priority fees value"))?;
                     
                     commands::idl::upload_metadata_by_json_url(url, program_id, keypair_path, priority_fees_per_cu)
+                }
+                ("download", Some(download_matches)) => {
+                    let program_id = download_matches.value_of("program-id").unwrap();
+                    let output_path = download_matches
+                        .value_of("output")
+                        .unwrap_or("metadata.json");
+                    commands::idl::download_metadata_to_file(program_id, output_path)
                 }
                 _ => {
                     println!("Unknown metadata command. Use --help to see available commands");
