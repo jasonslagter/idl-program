@@ -6,8 +6,8 @@ description = "A CLI tool for Solana metadata operations"
 authors = ["Wealthineer <hi@wealthineer.com>"]
 license = "MIT"
 repository = "https://github.com/solana-developers/idl-program/tree/main/rust_sdk"
-keywords = ["solana", "cli", "metadata"]
-categories = ["command-line-utilities", "blockchain"]
+keywords = ["solana", "cli", "metadata", "blockchain"]
+categories = ["command-line-utilities"]
 
 
 [[bin]]
