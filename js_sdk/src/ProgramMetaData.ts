@@ -1,7 +1,7 @@
 import { Keypair, PublicKey } from "@solana/web3.js";
 import fs from "fs";
-import { UploadIdlAnchor } from "../target/types/upload_idl_anchor";
-import IDL from "../target/idl/upload_idl_anchor.json";
+import { UploadIdlAnchor } from "./types/upload_idl_anchor";
+import IDL from "./upload_idl_anchor.json";
 import * as anchor from "@coral-xyz/anchor";
 import { inflate, deflate } from "pako";
 
@@ -143,6 +143,9 @@ async function uploadGenericDataBySeed(
     rpcUrl,
     priorityFeesPerCU
   );
+  if (!bufferAddress) {
+    throw new IDLError("Was not able to create buffer");
+  }
   console.log("Buffer created");
   await writeBuffer(
     buffer,
@@ -221,6 +224,51 @@ async function initializeMetaDataBySeed(
   } else {
     console.log("Idl account already exists");
   }
+}
+
+async function setAuthority(
+  idlPdaAddress: PublicKey,
+  newAuthority: PublicKey,
+  keypair: Keypair,
+  rpcUrl: string,
+  priorityFeesPerCU: number
+) {
+  const connection = new anchor.web3.Connection(rpcUrl, "confirmed");
+  const provider = new anchor.AnchorProvider(
+    connection,
+    new anchor.Wallet(keypair),
+    {}
+  );
+  anchor.setProvider(provider);
+  const program = new anchor.Program(IDL as UploadIdlAnchor, provider);
+
+  const initializePdaInstruction = await program.methods
+    .setAuthority(newAuthority)
+    .accountsPartial({
+      idl: idlPdaAddress,
+      authority: keypair.publicKey,
+    })
+    .instruction();
+
+  const getLatestBlockhash = await connection.getLatestBlockhash();
+
+  const tx = new anchor.web3.Transaction();
+  if (priorityFeesPerCU > 0) {
+    const priorityFeeInstruction =
+      anchor.web3.ComputeBudgetProgram.setComputeUnitPrice({
+        microLamports: priorityFeesPerCU,
+      });
+    tx.add(priorityFeeInstruction);
+  }
+
+  tx.add(initializePdaInstruction);
+  tx.recentBlockhash = getLatestBlockhash.blockhash;
+  tx.feePayer = keypair.publicKey;
+  tx.sign(keypair);
+  provider.wallet.signTransaction(tx);
+
+  const signature = await connection.sendRawTransaction(tx.serialize());
+  console.log("Set authority signature", signature);
 }
 
 async function createBuffer(
@@ -361,9 +409,16 @@ async function setBuffer(
   const idlAccount = getCanonicalPdaAddressBySeed(programId, seed);
 
   const idlAccountAccountInfo = await connection.getAccountInfo(idlAccount);
+  if (!idlAccountAccountInfo) {
+    throw new IDLError("IDL account not found");
+  }
   const bufferAccountAccountInfo = await connection.getAccountInfo(
     bufferAddress
   );
+
+  if (!bufferAccountAccountInfo) {
+    throw new IDLError("Buffer account not found");
+  }
 
   let idlAccountSize = idlAccountAccountInfo.data.length;
   const bufferAccountSize = bufferAccountAccountInfo.data.length;
@@ -439,9 +494,7 @@ async function setBuffer(
   tx.feePayer = keypair.publicKey;
   provider.wallet.signTransaction(tx);
 
-  const signature = await connection.sendRawTransaction(tx.serialize(), {
-    skipPreflight: true,
-  });
+  const signature = await connection.sendRawTransaction(tx.serialize());
   await connection.confirmTransaction(signature, "confirmed");
   console.log("Signature set buffer", signature);
 }
@@ -728,7 +781,14 @@ async function uploadProgramMetadataByUrl(
     if (error instanceof IDLError) {
       throw error;
     }
-    throw new IDLError(`Failed to process metadata from URL: ${error.message}`);
+    // Type guard for Error objects
+    if (error instanceof Error) {
+      throw new IDLError(
+        `Failed to process metadata from URL: ${error.message}`
+      );
+    }
+    // Fallback for unknown error types
+    throw new IDLError("Failed to process metadata from URL: Unknown error");
   }
 }
 
@@ -737,6 +797,7 @@ export {
   uploadIdlUrl,
   uploadProgramMetadataByJsonPath,
   uploadProgramMetadataByUrl,
+  setAuthority,
   fetchIDL,
   getCanonicalIdlAddress,
   getCanonicalPdaAddressBySeed,

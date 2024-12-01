@@ -104,15 +104,8 @@ pub mod upload_idl_anchor {
         Ok(())
     }
 
-    // TODO: test this 
-    pub fn remove_authority(ctx: Context<Initialize>) -> Result<()> {
-        ctx.accounts.idl.authority = ERASED_AUTHORITY;
-        Ok(())
-    }
-
-    // TODO: test this 
-    pub fn change_authority(ctx: Context<Initialize>) -> Result<()> {
-        ctx.accounts.idl.authority = *ctx.accounts.signer.key;
+    pub fn set_authority(ctx: Context<IdlAccounts>, new_authority: Pubkey) -> Result<()> {
+        ctx.accounts.idl.authority = new_authority;
         Ok(())
     }
 
@@ -170,6 +163,14 @@ pub struct Initialize<'info> {
 }
 
 #[derive(Accounts)]
+pub struct IdlAccounts<'info> {
+    #[account(mut, has_one = authority)]
+    pub idl: Account<'info, IdlAccount>,
+    #[account(constraint = authority.key != &ERASED_AUTHORITY)]
+    pub authority: Signer<'info>,
+}
+
+#[derive(Accounts)]
 // Seed can be dynamic. For IDL use "idl" as seed.
 #[instruction(len: u16, seed: String)]
 pub struct Resize<'info> {
@@ -189,6 +190,7 @@ pub struct Resize<'info> {
     /// CHECK: This is the program id of the program you want to upload the IDL for.
     pub program_id: AccountInfo<'info>,
 }
+
 
 // Accounts for creating an idl buffer.
 #[derive(Accounts)]
@@ -242,5 +244,6 @@ pub struct IdlSetBuffer<'info> {
 pub struct IdlAccount {
     authority: Pubkey,
     data_len: u32,
+    // program id? Needed? 
     // The rest is compressed idl bytes.
 }

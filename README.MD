@@ -32,8 +32,6 @@ TODO:
 - Create JS library
 - js v2
 - Create Rust CLI (assignee @wealthineer)
-- Add delete authority instruction
-- Add change authority instruction
 - Add Support for non canonical PDAs
 - Add test case for bigger 10mb IDLs
 - Write Web3js@2 cli using codama (generated client is already in the codama folder) (Good first issue)
@@ -54,3 +52,5 @@ Done:
 - Add priority fees to transactions
 - Add support for any program meta data using a dynamic seed string instead of hardcoded "idl"
 - Add Test case for uploading program Logo meta data
+- Add delete authority instruction
+- Add change authority instruction

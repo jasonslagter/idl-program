@@ -8,7 +8,8 @@ import {
   uploadIdlByJsonPath,
   uploadIdlUrl,
   uploadProgramMetadataByJsonPath,
-} from "../js_sdk/ProgramMetaData";
+  // } from "my-idl-test/dist/ProgramMetaData";
+} from "../js_sdk/src/ProgramMetaData";
 import { assert } from "chai";
 import { inflate } from "pako";
 import { Keypair, PublicKey } from "@solana/web3.js";
