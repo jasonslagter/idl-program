@@ -19,6 +19,9 @@ rust-cli idl upload <IDL_PATH> <PROGRAM_ID> [OPTIONS]
 # Upload an IDL from URL
 rust-cli idl upload-url <URL> <PROGRAM_ID> [OPTIONS]
 
+# Download an IDL
+rust-cli idl download <PROGRAM_ID> [OUTPUT_PATH]
+
 Options:
   -k, --keypair <PATH>           Path to keypair file (optional, defaults to config)
   -p, --priority-fees <NUMBER>   Priority fees per compute unit (default: 0)
@@ -33,6 +36,9 @@ rust-cli metadata upload <METADATA_PATH> <PROGRAM_ID> [OPTIONS]
 
 # Upload metadata from URL
 rust-cli metadata upload-url <URL> <PROGRAM_ID> [OPTIONS]
+
+# Download metadata
+rust-cli metadata download <PROGRAM_ID> [OUTPUT_PATH]
 
 Options:
   -k, --keypair <PATH>           Path to keypair file (optional, defaults to config)
@@ -51,9 +57,14 @@ rust-cli idl upload-url https://example.com/my_idl.json GrAkz4CQ4zKm9KhZ9Q7PkCmq
 
 # Upload metadata using default keypair
 rust-cli metadata upload ./metadata.json GrAkz4CQ4zKm9KhZ9Q7PkCmqDP7JuSGbpwGY8dxKt6Kj
+# Download IDL to default path (idl.json)
+rust-cli idl download GrAkz4CQ4zKm9KhZ9Q7PkCmqDP7JuSGbpwGY8dxKt6Kj
 
 # Upload metadata from URL
 rust-cli metadata upload-url https://example.com/metadata.json GrAkz4CQ4zKm9KhZ9Q7PkCmqDP7JuSGbpwGY8dxKt6Kj
+
+# Download metadata to custom path
+rust-cli metadata download GrAkz4CQ4zKm9KhZ9Q7PkCmqDP7JuSGbpwGY8dxKt6Kj ./my-metadata.json
 ```
 
 ## Testing the Rust CLI against a local validator from within this repository
