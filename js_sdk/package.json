@@ -1,14 +1,13 @@
 {
   "name": "my-idl-test",
   "description": "make your package easier to find on the npm website",
-  "version": "0.0.8",
+  "version": "0.0.13",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/solana-developers/idl-program.git"
   },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  
   "paths": {
     "my-idl-test": [
       "./js_sdk/dist"
