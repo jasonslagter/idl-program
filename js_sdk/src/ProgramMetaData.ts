@@ -1,7 +1,7 @@
 import { Keypair, PublicKey } from "@solana/web3.js";
 import fs from "fs";
-import { UploadIdlAnchor } from "../../target/idl/upload_idl_anchor";
-import IDL from "../../target/idl/upload_idl_anchor.json";
+import { UploadIdlAnchor } from "./types/upload_idl_anchor";
+import IDL from "./upload_idl_anchor.json";
 import * as anchor from "@coral-xyz/anchor";
 import { inflate, deflate } from "pako";
 
