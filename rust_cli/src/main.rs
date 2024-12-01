@@ -21,14 +21,8 @@ fn main() -> Result<()> {
                         .unwrap_or("0")
                         .parse::<u64>()
                         .map_err(|_| anyhow!("Invalid priority fees value"))?;
-                    tokio::runtime::Builder::new_multi_thread()
-                    .enable_all()
-                    .build()
-                    .unwrap()
-                    .block_on(async {
-                        commands::idl::upload_idl_by_json_path(idl_path, program_id, keypair_path, priority_fees_per_cu).await
-                    })
                     
+                    commands::idl::upload_idl_by_json_path(idl_path, program_id, keypair_path, priority_fees_per_cu)
                 }
                 _ => {
                     println!("Unknown IDL command. Use --help to see available commands");
