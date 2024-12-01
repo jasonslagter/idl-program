@@ -5,7 +5,7 @@ This CLI is used to interact with the metadata program.
 ## Usage
 
 ```bash
-rust-cli [SUBCOMMAND]
+program-metadata [SUBCOMMAND]
 ```
 
 ### Commands
@@ -14,13 +14,13 @@ rust-cli [SUBCOMMAND]
 
 ```bash
 # Upload an IDL from local file
-rust-cli idl upload <IDL_PATH> <PROGRAM_ID> [OPTIONS]
+program-metadata idl upload <IDL_PATH> <PROGRAM_ID> [OPTIONS]
 
 # Upload an IDL from URL
-rust-cli idl upload-url <URL> <PROGRAM_ID> [OPTIONS]
+program-metadata idl upload-url <URL> <PROGRAM_ID> [OPTIONS]
 
 # Download an IDL
-rust-cli idl download <PROGRAM_ID> [OUTPUT_PATH]
+program-metadata idl download <PROGRAM_ID> [OUTPUT_PATH]
 
 Options:
   -k, --keypair <PATH>           Path to keypair file (optional, defaults to config)
@@ -32,13 +32,13 @@ Options:
 
 ```bash
 # Upload metadata from local file
-rust-cli metadata upload <METADATA_PATH> <PROGRAM_ID> [OPTIONS]
+program-metadata metadata upload <METADATA_PATH> <PROGRAM_ID> [OPTIONS]
 
 # Upload metadata from URL
-rust-cli metadata upload-url <URL> <PROGRAM_ID> [OPTIONS]
+program-metadata metadata upload-url <URL> <PROGRAM_ID> [OPTIONS]
 
 # Download metadata
-rust-cli metadata download <PROGRAM_ID> [OUTPUT_PATH]
+program-metadata metadata download <PROGRAM_ID> [OUTPUT_PATH]
 
 Options:
   -k, --keypair <PATH>           Path to keypair file (optional, defaults to config)
@@ -50,21 +50,22 @@ Examples:
 
 ```bash
 # Upload IDL using default keypair
-rust-cli idl upload ./target/idl/my_program.json GrAkz4CQ4zKm9KhZ9Q7PkCmqDP7JuSGbpwGY8dxKt6Kj
+program-metadata idl upload ./target/idl/my_program.json GrAkz4CQ4zKm9KhZ9Q7PkCmqDP7JuSGbpwGY8dxKt6Kj
 
 # Upload IDL from URL with custom keypair and priority fees
-rust-cli idl upload-url https://example.com/my_idl.json GrAkz4CQ4zKm9KhZ9Q7PkCmqDP7JuSGbpwGY8dxKt6Kj -k ./my-keypair.json -p 1000
+program-metadata idl upload-url https://example.com/my_idl.json GrAkz4CQ4zKm9KhZ9Q7PkCmqDP7JuSGbpwGY8dxKt6Kj -k ./my-keypair.json -p 1000
 
 # Upload metadata using default keypair
-rust-cli metadata upload ./metadata.json GrAkz4CQ4zKm9KhZ9Q7PkCmqDP7JuSGbpwGY8dxKt6Kj
+program-metadata metadata upload ./metadata.json GrAkz4CQ4zKm9KhZ9Q7PkCmqDP7JuSGbpwGY8dxKt6Kj
+
 # Download IDL to default path (idl.json)
-rust-cli idl download GrAkz4CQ4zKm9KhZ9Q7PkCmqDP7JuSGbpwGY8dxKt6Kj
+program-metadata idl download GrAkz4CQ4zKm9KhZ9Q7PkCmqDP7Ju
 
 # Upload metadata from URL
-rust-cli metadata upload-url https://example.com/metadata.json GrAkz4CQ4zKm9KhZ9Q7PkCmqDP7JuSGbpwGY8dxKt6Kj
+program-metadata metadata upload-url https://example.com/metadata.json GrAkz4CQ4zKm9KhZ9Q7PkCmqDP7JuSGbpwGY8dxKt6Kj
 
 # Download metadata to custom path
-rust-cli metadata download GrAkz4CQ4zKm9KhZ9Q7PkCmqDP7JuSGbpwGY8dxKt6Kj ./my-metadata.json
+program-metadata metadata download GrAkz4CQ4zKm9KhZ9Q7PkCmqDP7JuSGbpwGY8dxKt6Kj ./my-metadata.json
 ```
 
 ## Testing the Rust CLI against a local validator from within this repository

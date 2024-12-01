@@ -1,7 +1,18 @@
 [package]
-name = "metadata"
+name = "program-metadata"
 version = "0.1.0"
 edition = "2021"
+description = "A CLI tool for Solana metadata operations"
+authors = ["Wealthineer <hi@wealthineer.com>"]
+license = "MIT"
+repository = "https://github.com/solana-developers/idl-program/tree/main/rust_sdk"
+keywords = ["solana", "cli", "metadata"]
+categories = ["command-line-utilities", "blockchain"]
+
+
+[[bin]]
+name = "program-metadata"
+path = "src/main.rs"
 
 [dependencies]
 clap = "2.33"
