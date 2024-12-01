@@ -17,13 +17,14 @@ use crate::config::get_user_config;
 use crate::codama_sdk::{
     instructions::{
         initialize::{Initialize, InitializeInstructionArgs},
-        create_buffer::{CreateBuffer, CreateBufferBuilder},
+        create_buffer::CreateBufferBuilder,
         write_buffer::{WriteBuffer, WriteBufferInstructionArgs},
         set_buffer::{SetBuffer, SetBufferInstructionArgs},
-        close_buffer::{CloseBuffer},
+        close_buffer::CloseBuffer,
     },
     programs::UPLOAD_IDL_ANCHOR_ID,
 };
+use reqwest::blocking::Client;
 
 const IDL_SEED: &str = "idl";
 const METADATA_SEED: &str = "metadata";
@@ -51,9 +52,57 @@ pub fn upload_metadata_by_json_path(
     upload_data_by_json_path(metadata_path, program_id, keypair_path, priority_fees_per_cu, METADATA_SEED)
 }
 
+pub fn upload_idl_by_json_url(
+    url: &str,
+    program_id: &str,
+    keypair_path: Option<&str>,
+    priority_fees_per_cu: u64,
+) -> Result<()> {
+    let json_data = fetch_json_from_url(url)?;
+    upload_data_from_bytes(json_data, program_id, keypair_path, priority_fees_per_cu, IDL_SEED)
+}
 
+pub fn upload_metadata_by_json_url(
+    url: &str,
+    program_id: &str,
+    keypair_path: Option<&str>,
+    priority_fees_per_cu: u64,
+) -> Result<()> {
+    let json_data = fetch_json_from_url(url)?;
+    upload_data_from_bytes(json_data, program_id, keypair_path, priority_fees_per_cu, METADATA_SEED)
+}
+
+fn fetch_json_from_url(url: &str) -> Result<Vec<u8>> {
+    let client = Client::new();
+    let response = client.get(url)
+        .send()
+        .map_err(|e| anyhow!("Failed to fetch from URL: {}", e))?;
+    
+    if !response.status().is_success() {
+        return Err(anyhow!("Failed to fetch URL: HTTP {}", response.status()));
+    }
+
+    response.bytes()
+        .map_err(|e| anyhow!("Failed to read response body: {}", e))
+        .map(|b| b.to_vec())
+}
+
+// Refactor the existing upload_data_by_json_path to use this new function
 fn upload_data_by_json_path(
     json_path: &str,
+    program_id: &str,
+    keypair_path: Option<&str>,
+    priority_fees_per_cu: u64,
+    seed: &str,
+) -> Result<()> {
+    let json_data = fs::read(json_path)
+        .map_err(|e| anyhow!("Failed to read JSON file: {}", e))?;
+    upload_data_from_bytes(json_data, program_id, keypair_path, priority_fees_per_cu, seed)
+}
+
+// New core function that handles the actual upload
+fn upload_data_from_bytes(
+    json_data: Vec<u8>,
     program_id: &str,
     keypair_path: Option<&str>,
     priority_fees_per_cu: u64,
@@ -78,10 +127,6 @@ fn upload_data_by_json_path(
 
     println!("Signer: {}", signer.pubkey());
 
-    // Read and validate JSON file
-    let json_data = fs::read(json_path)
-        .map_err(|e| anyhow!("Failed to read JSON file: {}", e))?;
-
     // Get account address
     let (account_address, _) = Pubkey::find_program_address(
         &[seed.as_bytes(), program_pubkey.as_ref()],
@@ -98,7 +143,7 @@ fn upload_data_by_json_path(
     write_buffer(compressed_data, &buffer_keypair, &signer, &rpc_client, priority_fees_per_cu)?;
 
     // Set and close buffer
-    set_and_close_buffer(rpc_client, account_address, buffer_keypair, priority_fees_per_cu, signer, program_pubkey)?;
+    set_and_close_buffer(rpc_client, account_address, buffer_keypair, priority_fees_per_cu, signer, program_pubkey, seed)?;
     
     Ok(())
 }
@@ -289,10 +334,6 @@ fn write_buffer(
     }
     println!("All buffer chunks written successfully!");
 
-    // Add delay to ensure all chunks are confirmed
-    println!("Waiting 2 seconds for confirmations...");
-    std::thread::sleep(std::time::Duration::from_secs(2));
-
     Ok(())
 }
 
@@ -302,91 +343,110 @@ fn set_and_close_buffer(
     buffer_keypair: Keypair, 
     priority_fees_per_cu: u64, 
     signer: Keypair, 
-    program_pubkey: Pubkey
+    program_pubkey: Pubkey,
+    seed: &str,
 ) -> Result<(), anyhow::Error> {
-let idl_account_info = rpc_client.get_account(&idl_address)
-    .map_err(|e| anyhow!("Failed to get IDL account info after initialization: {}", e))?;
-let buffer_account_info = rpc_client.get_account(&buffer_keypair.pubkey())
-    .map_err(|e| anyhow!("Failed to get buffer account info: {}", e))?;
-let idl_account_size = idl_account_info.data.len();
-let buffer_account_size = buffer_account_info.data.len();
-println!("IDL account size: {}, Buffer account size: {}", idl_account_size, buffer_account_size);
-let mut instructions = vec![
-    ComputeBudgetInstruction::set_compute_unit_price(priority_fees_per_cu),
-    ComputeBudgetInstruction::set_compute_unit_limit(200000),
-];
-if buffer_account_size < idl_account_size {
-    // Shrink IDL account to buffer size
-    let resize = Resize {
-        idl: idl_address,
-        signer: signer.pubkey(),
-        system_program: solana_sdk::system_program::ID,
-        program_id: program_pubkey,
-    }.instruction(ResizeInstructionArgs {
-        len: buffer_account_size as u16,
-        seed: IDL_SEED.to_string(),
-    });
-    instructions.push(resize);
-} else {
-    let mut current_size = idl_account_size;
-    let target_size = buffer_account_size;
+    // Try to get account info with retries
+    let mut attempts = 0;
+    let max_attempts = 10;
+    
+    let (idl_account_info, buffer_account_info) = loop {
+        match (
+            rpc_client.get_account(&idl_address),
+            rpc_client.get_account(&buffer_keypair.pubkey())
+        ) {
+            (Ok(idl), Ok(buffer)) => break (idl, buffer),
+            (Err(e), _) | (_, Err(e)) => {
+                attempts += 1;
+                if attempts >= max_attempts {
+                    return Err(anyhow!("Failed to get account info after {} attempts: {}", max_attempts, e));
+                }
+                println!("Failed to get account info, retrying in 2 seconds... (attempt {}/{})", attempts, max_attempts);
+                std::thread::sleep(std::time::Duration::from_secs(2));
+            }
+        }
+    };
 
-    while current_size < target_size {
-        let next_size = std::cmp::min(
-            current_size + MAX_RESIZE_STEP as usize,
-            target_size
-        );
-
+    let idl_account_size = idl_account_info.data.len();
+    let buffer_account_size = buffer_account_info.data.len();
+    
+    println!("Data account size: {}, Buffer account size: {}", idl_account_size, buffer_account_size);
+    let mut instructions = vec![
+        ComputeBudgetInstruction::set_compute_unit_price(priority_fees_per_cu),
+        ComputeBudgetInstruction::set_compute_unit_limit(200000),
+    ];
+    if buffer_account_size < idl_account_size {
+        // Shrink IDL account to buffer size
         let resize = Resize {
             idl: idl_address,
             signer: signer.pubkey(),
             system_program: solana_sdk::system_program::ID,
             program_id: program_pubkey,
         }.instruction(ResizeInstructionArgs {
-            len: next_size as u16,
-            seed: IDL_SEED.to_string(),
+            len: buffer_account_size as u16,
+            seed: seed.to_string(),
         });
         instructions.push(resize);
+    } else {
+        let mut current_size = idl_account_size;
+        let target_size = buffer_account_size;
 
-        println!("Adding resize instruction to size {}", next_size);
-        current_size = next_size;
+        while current_size < target_size {
+            let next_size = std::cmp::min(
+                current_size + MAX_RESIZE_STEP as usize,
+                target_size
+            );
+
+            let resize = Resize {
+                idl: idl_address,
+                signer: signer.pubkey(),
+                system_program: solana_sdk::system_program::ID,
+                program_id: program_pubkey,
+            }.instruction(ResizeInstructionArgs {
+                len: next_size as u16,
+                seed: seed.to_string(),
+            });
+            instructions.push(resize);
+
+            println!("Adding resize instruction to size {}", next_size);
+            current_size = next_size;
+        }
     }
-}
-let set_buffer = SetBuffer {
-    buffer: buffer_keypair.pubkey(),
-    idl: idl_address,
-    authority: signer.pubkey(),
-    program_id: program_pubkey,
-}.instruction(SetBufferInstructionArgs {
-    seed: IDL_SEED.to_string(),
-});
-println!("Set buffer instruction");
-instructions.push(set_buffer);
-let close_buffer = CloseBuffer {
-    buffer: buffer_keypair.pubkey(),
-    authority: signer.pubkey(),
-}.instruction();
-instructions.push(close_buffer);
-let recent_blockhash = rpc_client
-    .get_latest_blockhash()
-    .map_err(|e| anyhow!("Failed to get recent blockhash: {}", e))?;
-let transaction = Transaction::new_signed_with_payer(
-    &instructions,
-    Some(&signer.pubkey()),
-    &[&signer],
-    recent_blockhash,
-);
-let mut config = RpcSendTransactionConfig::default();
-config.skip_preflight = true;
-let signature = rpc_client
-    .send_transaction_with_config(
-        &transaction,
-        config
-    )
-    .map_err(|e| anyhow!("Failed to send set buffer transaction: {}", e))?;
-println!("Buffer set and closed successfully!");
-println!("Final signature: {}", signature);
-Ok(())
+    let set_buffer = SetBuffer {
+        buffer: buffer_keypair.pubkey(),
+        idl: idl_address,
+        authority: signer.pubkey(),
+        program_id: program_pubkey,
+    }.instruction(SetBufferInstructionArgs {
+        seed: seed.to_string(),
+    });
+    println!("Set buffer instruction");
+    instructions.push(set_buffer);
+    let close_buffer = CloseBuffer {
+        buffer: buffer_keypair.pubkey(),
+        authority: signer.pubkey(),
+    }.instruction();
+    instructions.push(close_buffer);
+    let recent_blockhash = rpc_client
+        .get_latest_blockhash()
+        .map_err(|e| anyhow!("Failed to get recent blockhash: {}", e))?;
+    let transaction = Transaction::new_signed_with_payer(
+        &instructions,
+        Some(&signer.pubkey()),
+        &[&signer],
+        recent_blockhash,
+    );
+    let mut config = RpcSendTransactionConfig::default();
+    config.skip_preflight = true;
+    let signature = rpc_client
+        .send_and_confirm_transaction_with_spinner_and_commitment(
+            &transaction,
+            CommitmentConfig::confirmed()
+        )
+        .map_err(|e| anyhow!("Failed to send set buffer transaction: {}", e))?;
+    println!("Buffer set and closed successfully!");
+    println!("Final signature: {}", signature);
+    Ok(())
 }
 
 

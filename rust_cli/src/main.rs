@@ -24,6 +24,18 @@ fn main() -> Result<()> {
                     
                     commands::idl::upload_idl_by_json_path(idl_path, program_id, keypair_path, priority_fees_per_cu)
                 }
+                ("upload-url", Some(upload_matches)) => {
+                    let url = upload_matches.value_of("url").unwrap();
+                    let program_id = upload_matches.value_of("program-id").unwrap();
+                    let keypair_path = upload_matches.value_of("keypair");
+                    let priority_fees_per_cu = upload_matches
+                        .value_of("priority-fees-per-cu")
+                        .unwrap_or("0")
+                        .parse::<u64>()
+                        .map_err(|_| anyhow!("Invalid priority fees value"))?;
+                    
+                    commands::idl::upload_idl_by_json_url(url, program_id, keypair_path, priority_fees_per_cu)
+                }
                 _ => {
                     println!("Unknown IDL command. Use --help to see available commands");
                     Ok(())
@@ -43,6 +55,18 @@ fn main() -> Result<()> {
                         .map_err(|_| anyhow!("Invalid priority fees value"))?;
                     
                     commands::idl::upload_metadata_by_json_path(metadata_path, program_id, keypair_path, priority_fees_per_cu)
+                }
+                ("upload-url", Some(upload_matches)) => {
+                    let url = upload_matches.value_of("url").unwrap();
+                    let program_id = upload_matches.value_of("program-id").unwrap();
+                    let keypair_path = upload_matches.value_of("keypair");
+                    let priority_fees_per_cu = upload_matches
+                        .value_of("priority-fees-per-cu")
+                        .unwrap_or("0")
+                        .parse::<u64>()
+                        .map_err(|_| anyhow!("Invalid priority fees value"))?;
+                    
+                    commands::idl::upload_metadata_by_json_url(url, program_id, keypair_path, priority_fees_per_cu)
                 }
                 _ => {
                     println!("Unknown metadata command. Use --help to see available commands");

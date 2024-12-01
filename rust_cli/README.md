@@ -13,8 +13,11 @@ rust-cli [SUBCOMMAND]
 #### IDL Management
 
 ```bash
-# Upload an IDL file
+# Upload an IDL from local file
 rust-cli idl upload <IDL_PATH> <PROGRAM_ID> [OPTIONS]
+
+# Upload an IDL from URL
+rust-cli idl upload-url <URL> <PROGRAM_ID> [OPTIONS]
 
 Options:
   -k, --keypair <PATH>           Path to keypair file (optional, defaults to config)
@@ -22,14 +25,35 @@ Options:
   --help                         Print help information
 ```
 
-Example:
+#### Metadata Management
+
+```bash
+# Upload metadata from local file
+rust-cli metadata upload <METADATA_PATH> <PROGRAM_ID> [OPTIONS]
+
+# Upload metadata from URL
+rust-cli metadata upload-url <URL> <PROGRAM_ID> [OPTIONS]
+
+Options:
+  -k, --keypair <PATH>           Path to keypair file (optional, defaults to config)
+  -p, --priority-fees <NUMBER>   Priority fees per compute unit (default: 0)
+  --help                         Print help information
+```
+
+Examples:
 
 ```bash
 # Upload IDL using default keypair
 rust-cli idl upload ./target/idl/my_program.json GrAkz4CQ4zKm9KhZ9Q7PkCmqDP7JuSGbpwGY8dxKt6Kj
 
-# Upload IDL with custom keypair and priority fees
-rust-cli idl upload ./target/idl/my_program.json GrAkz4CQ4zKm9KhZ9Q7PkCmqDP7JuSGbpwGY8dxKt6Kj -k ./my-keypair.json -p 1000
+# Upload IDL from URL with custom keypair and priority fees
+rust-cli idl upload-url https://example.com/my_idl.json GrAkz4CQ4zKm9KhZ9Q7PkCmqDP7JuSGbpwGY8dxKt6Kj -k ./my-keypair.json -p 1000
+
+# Upload metadata using default keypair
+rust-cli metadata upload ./metadata.json GrAkz4CQ4zKm9KhZ9Q7PkCmqDP7JuSGbpwGY8dxKt6Kj
+
+# Upload metadata from URL
+rust-cli metadata upload-url https://example.com/metadata.json GrAkz4CQ4zKm9KhZ9Q7PkCmqDP7JuSGbpwGY8dxKt6Kj
 ```
 
 ## Testing the Rust CLI against a local validator from within this repository
