@@ -17,4 +17,4 @@ codama.update(
 
 // Generate the client sdks at the given path
 codama.accept(renderJavaScriptVisitor("./codama-sdks/js/src/generated"));
-codama.accept(renderRustVisitor("./codama-sdks/rust/src/generated"));
+codama.accept(renderRustVisitor("./rust_cli/src/codama_sdk/generated"));

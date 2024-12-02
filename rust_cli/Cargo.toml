@@ -1,0 +1,37 @@
+[workspace]
+[package]
+name = "program-metadata"
+version = "0.1.0"
+edition = "2021"
+description = "A CLI tool for Solana metadata operations"
+authors = ["Wealthineer <hi@wealthineer.com>"]
+license = "MIT"
+repository = "https://github.com/solana-developers/idl-program/tree/main/rust_sdk"
+keywords = ["solana", "cli", "metadata", "blockchain"]
+categories = ["command-line-utilities"]
+
+
+[[bin]]
+name = "program-metadata"
+path = "src/main.rs"
+
+[dependencies]
+clap = "4.5.21"
+solana-sdk = "2.1.4" #upgrading this above 1.17 conflicts with solana-client and solana-program
+solana-program = "2.1.4" #upgrading this above 1.17 conflicts with solana-sdk and solana-client
+anyhow = "1.0"
+solana-cli-config = "2.1.4"
+solana-clap-utils = "2.1.4"
+borsh = "0.10"
+tokio = { version = "1.0", features = ["full"] }
+thiserror = "2.0.3"
+num-derive = "0.4.2"
+num-traits = "0.2.15"
+flate2 = "1.0.26"
+reqwest = { version = "0.11", features = ["blocking"] }
+solana-client = "2.1.4" #upgrading this above 1.17 conflicts with solana-sdk and solana-program
+
+# Optionally, you can add a feature flag to control program inclusion
+[features]
+default = []
+with-programs = [] # Add this if you want to optionally include program dependencies
