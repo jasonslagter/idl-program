@@ -15,10 +15,9 @@ name = "program-metadata"
 path = "src/main.rs"
 
 [dependencies]
-clap = "2.33"
-solana-sdk = "1.17"
-solana-client = "1.17"
-solana-program = "1.17"
+clap = "4.5.21"
+solana-sdk = "1.17" #upgrading this above 1.17 conflicts with solana-client and solana-program
+solana-program = "1.17" #upgrading this above 1.17 conflicts with solana-sdk and solana-client
 anyhow = "1.0"
 solana-cli-config = "=1.18.23"
 solana-clap-utils = "=1.18.23"
@@ -29,3 +28,4 @@ num-derive = "0.4.2"
 num-traits = "0.2.15"
 flate2 = "1.0.26"
 reqwest = { version = "0.11", features = ["blocking"] }
+solana-client = "1.17" #upgrading this above 1.17 conflicts with solana-sdk and solana-program

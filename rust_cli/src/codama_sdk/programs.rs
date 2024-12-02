@@ -9,5 +9,5 @@ use solana_program::{pubkey, pubkey::Pubkey};
 
 
   /// `upload_idl_anchor` program ID.
-  pub const UPLOAD_IDL_ANCHOR_ID: Pubkey = pubkey!("F1kv57eE7ikexSKNboUEeSCJ8WKuE1ZxfDqfv15UbraX");
+  pub const UPLOAD_IDL_ANCHOR_ID: Pubkey = pubkey!("idLB41CuMPpWZmQGGxpsxbyGDWWzono4JnFLJxQakrE");
 
