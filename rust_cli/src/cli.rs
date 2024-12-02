@@ -2,23 +2,22 @@ use clap::{Command, Arg, ArgAction};
 
 pub fn get_clap_app() -> Command {
     Command::new("program-metadata")
-        .about("A Solana CLI application")
+        .about("This CLI is used to interact with the metadata program. You can upload IDLs and metadata to Solana programs so that everyone can access them by just knowing the program id. It supports uploading from local files or URLs. You can also download the IDL and metadata from a program to a file on your system.")
         .version("0.1.0")
         .subcommand(
             Command::new("idl")
                 .about("IDL management commands")
                 .subcommand(
                     Command::new("upload")
-                        .about("Upload IDL from JSON file")
+                        .about("Upload IDL from a file")
                         .arg(
                             Arg::new("idl-path")
-                                .help("Path to the IDL JSON file")
+                                .help("Path to the IDL file")
                                 .required(true)
                                 .index(1)
                         )
                         .arg(
                             Arg::new("program-id")
-                                .short('p')
                                 .help("Program ID")
                                 .required(true)
                                 .index(2)
@@ -42,16 +41,15 @@ pub fn get_clap_app() -> Command {
                 )
                 .subcommand(
                     Command::new("upload-url")
-                        .about("Upload IDL from JSON URL")
+                        .about("Upload IDL from URL")
                         .arg(
                             Arg::new("url")
-                                .help("URL of the IDL JSON")
+                                .help("URL of the IDL file")
                                 .required(true)
                                 .index(1)
                         )
                         .arg(
                             Arg::new("program-id")
-                                .short('p')
                                 .help("Program ID")
                                 .required(true)
                                 .index(2)
@@ -95,16 +93,15 @@ pub fn get_clap_app() -> Command {
                 .about("Metadata management commands")
                 .subcommand(
                     Command::new("upload")
-                        .about("Upload Metadata from JSON file")
+                        .about("Upload Metadata from file")
                         .arg(
                             Arg::new("metadata-path")
-                                .help("Path to the Metadata JSON file")
+                                .help("Path to the Metadata file")
                                 .required(true)
                                 .index(1)
                         )
                         .arg(
                             Arg::new("program-id")
-                                .short('p')
                                 .help("Program ID")
                                 .required(true)
                                 .index(2)
@@ -128,16 +125,15 @@ pub fn get_clap_app() -> Command {
                 )
                 .subcommand(
                     Command::new("upload-url")
-                        .about("Upload Metadata from JSON URL")
+                        .about("Upload Metadata from URL")
                         .arg(
                             Arg::new("url")
-                                .help("URL of the Metadata JSON")
+                                .help("URL of the Metadata file")
                                 .required(true)
                                 .index(1)
                         )
                         .arg(
                             Arg::new("program-id")
-                                .short('p')
                                 .help("Program ID")
                                 .required(true)
                                 .index(2)

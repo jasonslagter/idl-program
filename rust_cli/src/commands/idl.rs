@@ -1,7 +1,6 @@
 use anyhow::{Result, anyhow};
 use flate2::write::GzEncoder;
 use flate2::Compression;
-use solana_client::rpc_config::RpcSendTransactionConfig;
 use solana_sdk::commitment_config::CommitmentConfig;
 use solana_sdk::{
     pubkey::Pubkey,
@@ -35,76 +34,60 @@ const CHUNK_SIZE: u16 = 900;
 const MAX_RESIZE_STEP: u16 = 10240;
 
 
-
-pub fn upload_idl_by_json_path(
-    idl_path: &str,
+//Upload functions
+pub fn upload_idl_by_file_path(
+    file_path: &str,
     program_id: &str,
     keypair_path: Option<&str>,
     priority_fees_per_cu: u64,
 ) -> Result<()> {
-    upload_data_by_json_path(idl_path, program_id, keypair_path, priority_fees_per_cu, IDL_SEED)
+    upload_data_by_file_path(file_path, program_id, keypair_path, priority_fees_per_cu, IDL_SEED)
 }
 
-pub fn upload_metadata_by_json_path(
+pub fn upload_metadata_by_file_path(
     metadata_path: &str,
     program_id: &str,
     keypair_path: Option<&str>,
     priority_fees_per_cu: u64,
 ) -> Result<()> {
-    upload_data_by_json_path(metadata_path, program_id, keypair_path, priority_fees_per_cu, METADATA_SEED)
+    upload_data_by_file_path(metadata_path, program_id, keypair_path, priority_fees_per_cu, METADATA_SEED)
 }
 
-pub fn upload_idl_by_json_url(
+pub fn upload_idl_by_url(
     url: &str,
     program_id: &str,
     keypair_path: Option<&str>,
     priority_fees_per_cu: u64,
 ) -> Result<()> {
-    let json_data = fetch_json_from_url(url)?;
-    upload_data_from_bytes(json_data, program_id, keypair_path, priority_fees_per_cu, IDL_SEED)
+    let upload_data = fetch_data_from_url(url)?;
+    upload_data_from_bytes(upload_data, program_id, keypair_path, priority_fees_per_cu, IDL_SEED)
 }
 
-pub fn upload_metadata_by_json_url(
+pub fn upload_metadata_by_url(
     url: &str,
     program_id: &str,
     keypair_path: Option<&str>,
     priority_fees_per_cu: u64,
 ) -> Result<()> {
-    let json_data = fetch_json_from_url(url)?;
-    upload_data_from_bytes(json_data, program_id, keypair_path, priority_fees_per_cu, METADATA_SEED)
+    let upload_data = fetch_data_from_url(url)?;
+    upload_data_from_bytes(upload_data, program_id, keypair_path, priority_fees_per_cu, METADATA_SEED)
 }
 
-fn fetch_json_from_url(url: &str) -> Result<Vec<u8>> {
-    let client = Client::new();
-    let response = client.get(url)
-        .send()
-        .map_err(|e| anyhow!("Failed to fetch from URL: {}", e))?;
-    
-    if !response.status().is_success() {
-        return Err(anyhow!("Failed to fetch URL: HTTP {}", response.status()));
-    }
-
-    response.bytes()
-        .map_err(|e| anyhow!("Failed to read response body: {}", e))
-        .map(|b| b.to_vec())
-}
-
-// Refactor the existing upload_data_by_json_path to use this new function
-fn upload_data_by_json_path(
-    json_path: &str,
+fn upload_data_by_file_path(
+    file_path: &str,
     program_id: &str,
     keypair_path: Option<&str>,
     priority_fees_per_cu: u64,
     seed: &str,
 ) -> Result<()> {
-    let json_data = fs::read(json_path)
-        .map_err(|e| anyhow!("Failed to read JSON file: {}", e))?;
-    upload_data_from_bytes(json_data, program_id, keypair_path, priority_fees_per_cu, seed)
+    let upload_data = fs::read(file_path)
+        .map_err(|e| anyhow!("Failed to read file: {}", e))?;
+    upload_data_from_bytes(upload_data, program_id, keypair_path, priority_fees_per_cu, seed)
 }
 
 // New core function that handles the actual upload
 fn upload_data_from_bytes(
-    json_data: Vec<u8>,
+    upload_data: Vec<u8>,
     program_id: &str,
     keypair_path: Option<&str>,
     priority_fees_per_cu: u64,
@@ -130,50 +113,38 @@ fn upload_data_from_bytes(
     println!("Signer: {}", signer.pubkey());
 
     // Get account address
-    let (account_address, _) = Pubkey::find_program_address(
-        &[seed.as_bytes(), program_pubkey.as_ref()],
-        &UPLOAD_IDL_ANCHOR_ID,
-    );
+    let metadata_address = get_metadata_address(seed, &program_pubkey);
 
     // Initialize account
-    initialize(program_id, &signer, priority_fees_per_cu, seed)?;
+    initialize(&program_pubkey, &signer, priority_fees_per_cu, seed)?;
 
     // Create buffer
-    let (compressed_data, buffer_keypair) = create_buffer(json_data, &rpc_client, &signer, priority_fees_per_cu)?;
+    let (compressed_data, buffer_keypair) = create_buffer(upload_data, &rpc_client, &signer, priority_fees_per_cu)?;
 
     // Write buffer
     write_buffer(compressed_data, &buffer_keypair, &signer, &rpc_client, priority_fees_per_cu)?;
 
     // Set and close buffer
-    set_and_close_buffer(rpc_client, account_address, buffer_keypair, priority_fees_per_cu, signer, program_pubkey, seed)?;
+    set_and_close_buffer(rpc_client, metadata_address, buffer_keypair, priority_fees_per_cu, signer, program_pubkey, seed)?;
     
     Ok(())
 }
 
-
-
 //Sub-transactions
 fn initialize(
-    program_id: &str,
+    program_pubkey: &Pubkey,
     signer: &Keypair,
     priority_fees_per_cu: u64,
     seed: &str,
 ) -> Result<()> {
     let (_, rpc_client) = get_user_config()?;
-    
-    // Parse program ID
-    let program_pubkey = Pubkey::from_str(program_id)
-        .map_err(|e| anyhow!("Invalid program ID: {}", e))?;
 
-    // Derive PDA for IDL account
-    let (idl_address, _) = Pubkey::find_program_address(
-        &[seed.as_bytes(), program_pubkey.as_ref()],
-        &UPLOAD_IDL_ANCHOR_ID
-    );
+    let metadata_address = get_metadata_address(seed, program_pubkey);
 
     // Check if account already exists
-    if let Ok(_) = rpc_client.get_account(&idl_address) {
-        println!("Data account already exists");
+    //don't use get account with retry here since we expect it to fail in cases and take another path in this case
+    println!("Data account already exists");
+    if let Ok(_) = rpc_client.get_account(&metadata_address) { 
         return Ok(());
     }
 
@@ -187,10 +158,10 @@ fn initialize(
 
     // Create initialize instruction using the generated code
     let accounts = Initialize {
-        idl: idl_address,
+        idl: metadata_address,
         signer: signer.pubkey(),
         system_program: solana_sdk::system_program::ID,
-        program_id: program_pubkey,
+        program_id: *program_pubkey,
         program_data: program_data_address,
     };
 
@@ -219,7 +190,7 @@ fn initialize(
 
     let units_consumed: u32 = simulation.value.units_consumed.unwrap_or(0) as u32;
 
-    println!("Units consumed: {}", units_consumed);
+    println!("Compute units from simulation: {}", units_consumed);
 
     let transaction = Transaction::new_signed_with_payer(
         &[ComputeBudgetInstruction::set_compute_unit_price(priority_fees_per_cu), ComputeBudgetInstruction::set_compute_unit_limit(units_consumed + 200) ,ix],
@@ -228,16 +199,13 @@ fn initialize(
         recent_blockhash,
     );
 
-    // let mut config = RpcSendTransactionConfig::default();
-    // config.skip_preflight = true;
-
     let signature = rpc_client
         .send_and_confirm_transaction_with_spinner_and_commitment(&transaction, CommitmentConfig::confirmed())
         .map_err(|e| anyhow!("Failed to send transaction: {}", e))?;
 
     println!("Data initialized successfully!");
     println!("Signature: {}", signature);
-    println!("Data Account: {}", idl_address);
+    println!("Newly created metadata PDA address from seed {seed} : {metadata_address}");
     
     Ok(())
 }
@@ -278,12 +246,10 @@ fn create_buffer(
     let signature = rpc_client
         .send_and_confirm_transaction_with_spinner_and_commitment(&transaction, CommitmentConfig::confirmed())
         .map_err(|e| anyhow!("Failed to send transaction: {}", e))?;
-    println!("Buffer account created successfully!");
+    println!("Buffer account created successfully: {}", buffer_keypair.pubkey());
     println!("Signature: {}", signature);
-    println!("Buffer Account: {}", buffer_keypair.pubkey());
     Ok((compressed_data, buffer_keypair))
 } 
-
 
 fn write_buffer(
     compressed_data: Vec<u8>, 
@@ -347,27 +313,9 @@ fn set_and_close_buffer(
     signer: Keypair, 
     program_pubkey: Pubkey,
     seed: &str,
-) -> Result<(), anyhow::Error> {
-    // Try to get account info with retries
-    let mut attempts = 0;
-    let max_attempts = 10;
-    
-    let (idl_account_info, buffer_account_info) = loop {
-        match (
-            rpc_client.get_account(&idl_address),
-            rpc_client.get_account(&buffer_keypair.pubkey())
-        ) {
-            (Ok(idl), Ok(buffer)) => break (idl, buffer),
-            (Err(e), _) | (_, Err(e)) => {
-                attempts += 1;
-                if attempts >= max_attempts {
-                    return Err(anyhow!("Failed to get account info after {} attempts: {}", max_attempts, e));
-                }
-                println!("Failed to get account info, retrying in 2 seconds... (attempt {}/{})", attempts, max_attempts);
-                std::thread::sleep(std::time::Duration::from_secs(2));
-            }
-        }
-    };
+) -> Result<()> {
+    let idl_account_info = get_account_with_retry(&rpc_client, &idl_address, 10, 2)?;
+    let buffer_account_info = get_account_with_retry(&rpc_client, &buffer_keypair.pubkey(), 10, 2)?;
 
     let idl_account_size = idl_account_info.data.len();
     let buffer_account_size = buffer_account_info.data.len();
@@ -438,17 +386,31 @@ fn set_and_close_buffer(
         &[&signer],
         recent_blockhash,
     );
-    let mut config = RpcSendTransactionConfig::default();
-    config.skip_preflight = true;
+
     let signature = rpc_client
         .send_and_confirm_transaction_with_spinner_and_commitment(
             &transaction,
             CommitmentConfig::confirmed()
         )
         .map_err(|e| anyhow!("Failed to send set buffer transaction: {}", e))?;
-    println!("Buffer set and closed successfully!");
-    println!("Final signature: {}", signature);
+    println!("Buffer set and closed successfully! Signature: {}", signature);
     Ok(())
+}
+
+
+//Download functions
+pub fn download_idl_to_file(
+    program_id: &str,
+    output_path: &str,
+) -> Result<()> {
+    download_data_to_file(program_id, output_path, IDL_SEED)
+}
+
+pub fn download_metadata_to_file(
+    program_id: &str,
+    output_path: &str,
+) -> Result<()> {
+    download_data_to_file(program_id, output_path, METADATA_SEED)
 }
 
 pub fn download_data_to_file(
@@ -463,13 +425,10 @@ pub fn download_data_to_file(
         .map_err(|e| anyhow!("Invalid program ID: {}", e))?;
 
     // Get account address
-    let (account_address, _) = Pubkey::find_program_address(
-        &[seed.as_bytes(), program_pubkey.as_ref()],
-        &UPLOAD_IDL_ANCHOR_ID,
-    );
+    let metadata_address = get_metadata_address(seed, &program_pubkey);
 
     // Get account data
-    let account = rpc_client.get_account(&account_address)
+    let account = rpc_client.get_account(&metadata_address)
         .map_err(|e| anyhow!("Failed to get account data: {}", e))?;
 
     // Get data length from account (4 bytes at offset 40)
@@ -482,30 +441,67 @@ pub fn download_data_to_file(
 
     // Decompress data
     let mut decoder = GzDecoder::new(compressed_data);
-    let mut json_data = Vec::new();
-    decoder.read_to_end(&mut json_data)?;
+    let mut download_data = Vec::new();
+    decoder.read_to_end(&mut download_data)?;
 
     // Write to file
-    fs::write(output_path, json_data)
+    fs::write(output_path, download_data)
         .map_err(|e| anyhow!("Failed to write to file: {}", e))?;
 
     println!("Successfully downloaded and saved data to {}", output_path);
     Ok(())
 }
 
-pub fn download_idl_to_file(
-    program_id: &str,
-    output_path: &str,
-) -> Result<()> {
-    download_data_to_file(program_id, output_path, IDL_SEED)
+
+// Utility functions
+fn get_account_with_retry(
+    rpc_client: &solana_client::rpc_client::RpcClient,
+    pubkey: &Pubkey,
+    max_attempts: u32,
+    retry_delay_secs: u64,
+) -> Result<solana_sdk::account::Account> {
+    let mut attempts = 0;
+    loop {
+        match rpc_client.get_account(pubkey) {
+            Ok(account) => return Ok(account),
+            Err(e) => {
+                attempts += 1;
+                if attempts >= max_attempts {
+                    return Err(anyhow!("Failed to get account {} after {} attempts: {}", pubkey, max_attempts, e));
+                }
+                println!("Failed to get account {}, retrying in {} seconds... (attempt {}/{})", 
+                    pubkey, retry_delay_secs, attempts, max_attempts);
+                std::thread::sleep(std::time::Duration::from_secs(retry_delay_secs));
+            }
+        }
+    }
 }
 
-pub fn download_metadata_to_file(
-    program_id: &str,
-    output_path: &str,
-) -> Result<()> {
-    download_data_to_file(program_id, output_path, METADATA_SEED)
+fn get_metadata_address(seed: &str, program_pubkey: &Pubkey) -> Pubkey {
+    let (metadata_address, _) = Pubkey::find_program_address(
+        &[seed.as_bytes(), program_pubkey.as_ref()],
+        &UPLOAD_IDL_ANCHOR_ID,
+    );
+    metadata_address
 }
+
+fn fetch_data_from_url(
+    url: &str
+) -> Result<Vec<u8>> {
+    let client = Client::new();
+    let response = client.get(url)
+        .send()
+        .map_err(|e| anyhow!("Failed to fetch from URL: {}", e))?;
+    
+    if !response.status().is_success() {
+        return Err(anyhow!("Failed to fetch URL: HTTP {}", response.status()));
+    }
+
+    response.bytes()
+        .map_err(|e| anyhow!("Failed to read response body: {}", e))
+        .map(|b| b.to_vec())
+}
+
 
 
 

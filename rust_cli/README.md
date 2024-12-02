@@ -1,6 +1,8 @@
 # Metadata Rust CLI
 
-This CLI is used to interact with the metadata program.
+This CLI is used to interact with the metadata program. You can upload IDLs and metadata to Solana programs so that everyone can access them by just knowing the program id. It supports uploading from local files or URLs. You can also download the IDL and metadata from a program to a file on your system. The data is stored on-chain in a compressed format to minimize storage costs while maintaining accessibility.
+
+The CLI provides a simple interface to manage both IDL (Interface Description Language) files, which describe a program's interface, and additional metadata that can provide more context about the program.
 
 ## Usage
 

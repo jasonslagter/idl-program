@@ -22,7 +22,7 @@ fn main() -> Result<()> {
                         .parse::<u64>()
                         .map_err(|_| anyhow!("Invalid priority fees value"))?;
                     
-                    commands::idl::upload_idl_by_json_path(idl_path, program_id, keypair_path.map(|s| s.as_str()), priority_fees_per_cu)
+                    commands::idl::upload_idl_by_file_path(idl_path, program_id, keypair_path.map(|s| s.as_str()), priority_fees_per_cu)
                 }
                 Some(("upload-url", upload_matches)) => {
                     let url = upload_matches.get_one::<String>("url").unwrap();
@@ -34,7 +34,7 @@ fn main() -> Result<()> {
                         .parse::<u64>()
                         .map_err(|_| anyhow!("Invalid priority fees value"))?;
                     
-                    commands::idl::upload_idl_by_json_url(url, program_id, keypair_path.map(|s| s.as_str()), priority_fees_per_cu)
+                    commands::idl::upload_idl_by_url(url, program_id, keypair_path.map(|s| s.as_str()), priority_fees_per_cu)
                 }
                 Some(("download", download_matches)) => {
                     let program_id = download_matches.get_one::<String>("program-id").unwrap();
@@ -62,7 +62,7 @@ fn main() -> Result<()> {
                         .parse::<u64>()
                         .map_err(|_| anyhow!("Invalid priority fees value"))?;
                     
-                    commands::idl::upload_metadata_by_json_path(metadata_path, program_id, keypair_path.map(|s| s.as_str()), priority_fees_per_cu)
+                    commands::idl::upload_metadata_by_file_path(metadata_path, program_id, keypair_path.map(|s| s.as_str()), priority_fees_per_cu)
                 }
                 Some(("upload-url", upload_matches)) => {
                     let url = upload_matches.get_one::<String>("url").unwrap();
@@ -74,7 +74,7 @@ fn main() -> Result<()> {
                         .parse::<u64>()
                         .map_err(|_| anyhow!("Invalid priority fees value"))?;
                     
-                    commands::idl::upload_metadata_by_json_url(url, program_id, keypair_path.map(|s| s.as_str()), priority_fees_per_cu)
+                    commands::idl::upload_metadata_by_url(url, program_id, keypair_path.map(|s| s.as_str()), priority_fees_per_cu)
                 }
                 Some(("download", download_matches)) => {
                     let program_id = download_matches.get_one::<String>("program-id").unwrap();
