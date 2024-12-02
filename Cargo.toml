@@ -1,6 +1,5 @@
 [workspace]
 members = [
-    # "rust_cli", 
     "programs/*",
 ]
 resolver = "2"

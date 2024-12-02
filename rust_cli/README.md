@@ -6,7 +6,7 @@ The CLI provides a simple interface to manage both IDL (Interface Description La
 
 ## Build the CLI
 
-To build the CLI first remove "programs/*" from the workspace members in `Cargo.toml`. 
+To build the CLI make sure to be inside the `rust_cli` directory.
 
 Then build the CLI:
 

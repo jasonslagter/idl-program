@@ -1,3 +1,4 @@
+[workspace]
 [package]
 name = "program-metadata"
 version = "0.1.0"
@@ -29,3 +30,8 @@ num-traits = "0.2.15"
 flate2 = "1.0.26"
 reqwest = { version = "0.11", features = ["blocking"] }
 solana-client = "2.1.4" #upgrading this above 1.17 conflicts with solana-sdk and solana-program
+
+# Optionally, you can add a feature flag to control program inclusion
+[features]
+default = []
+with-programs = [] # Add this if you want to optionally include program dependencies
