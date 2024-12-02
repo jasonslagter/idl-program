@@ -4,6 +4,16 @@ This CLI is used to interact with the metadata program. You can upload IDLs and 
 
 The CLI provides a simple interface to manage both IDL (Interface Description Language) files, which describe a program's interface, and additional metadata that can provide more context about the program.
 
+## Build the CLI
+
+To build the CLI first remove "programs/*" from the workspace members in `Cargo.toml`. 
+
+Then build the CLI:
+
+```bash
+cargo build
+```
+
 ## Usage
 
 ```bash
