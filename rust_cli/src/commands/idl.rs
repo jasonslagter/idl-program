@@ -125,7 +125,7 @@ fn upload_data_from_bytes(
     write_buffer(compressed_data, &buffer_keypair, &signer, &rpc_client, priority_fees_per_cu)?;
 
     // Set and close buffer
-    set_and_close_buffer(rpc_client, metadata_address, buffer_keypair, priority_fees_per_cu, signer, program_pubkey, seed)?;
+    set_and_close_buffer(rpc_client, metadata_address, &buffer_keypair, priority_fees_per_cu, &signer, program_pubkey, seed)?;
     
     Ok(())
 }
@@ -142,9 +142,8 @@ fn initialize(
     let metadata_address = get_metadata_address(seed, program_pubkey);
 
     // Check if account already exists
-    //don't use get account with retry here since we expect it to fail in cases and take another path in this case
-    println!("Data account already exists");
     if let Ok(_) = rpc_client.get_account(&metadata_address) { 
+        println!("Data account already exists");
         return Ok(());
     }
 
@@ -171,33 +170,17 @@ fn initialize(
 
     let ix = accounts.instruction(args);
 
-    // Create and send transaction
     let recent_blockhash = rpc_client
         .get_latest_blockhash()
         .map_err(|e| anyhow!("Failed to get recent blockhash: {}", e))?;
 
-
-    //TODO: find more elegant solution to set appropriate compute unit limit
-    let transaction_to_simulate = Transaction::new_signed_with_payer(
-        &[ComputeBudgetInstruction::set_compute_unit_price(priority_fees_per_cu), ComputeBudgetInstruction::set_compute_unit_limit(200000) ,ix.clone()],
-        Some(&signer.pubkey()),
+    let transaction = simulate_and_create_transaction(
+        &rpc_client,
+        vec![ix],
         &[signer],
+        priority_fees_per_cu,
         recent_blockhash,
-    );
-
-    let simulation = rpc_client.simulate_transaction(&transaction_to_simulate)
-    .map_err(|e| anyhow!("Failed to simulate transaction: {}", e))?;
-
-    let units_consumed: u32 = simulation.value.units_consumed.unwrap_or(0) as u32;
-
-    println!("Compute units from simulation: {}", units_consumed);
-
-    let transaction = Transaction::new_signed_with_payer(
-        &[ComputeBudgetInstruction::set_compute_unit_price(priority_fees_per_cu), ComputeBudgetInstruction::set_compute_unit_limit(units_consumed + 200) ,ix],
-        Some(&signer.pubkey()),
-        &[&signer],
-        recent_blockhash,
-    );
+    )?;
 
     let signature = rpc_client
         .send_and_confirm_transaction_with_spinner_and_commitment(&transaction, CommitmentConfig::confirmed())
@@ -237,12 +220,17 @@ fn create_buffer(
     let recent_blockhash = rpc_client
         .get_latest_blockhash()
         .map_err(|e| anyhow!("Failed to get recent blockhash: {}", e))?;
-    let transaction = Transaction::new_signed_with_payer(
-            &[ComputeBudgetInstruction::set_compute_unit_price(priority_fees_per_cu), ComputeBudgetInstruction::set_compute_unit_limit(5000),create_account_ix, create_buffer],
-            Some(&signer.pubkey()),
+
+    
+
+    let transaction = simulate_and_create_transaction(
+            &rpc_client,
+            vec![create_account_ix, create_buffer],
             &[signer, &buffer_keypair],
+            priority_fees_per_cu,
             recent_blockhash,
-        );
+    )?;
+
     let signature = rpc_client
         .send_and_confirm_transaction_with_spinner_and_commitment(&transaction, CommitmentConfig::confirmed())
         .map_err(|e| anyhow!("Failed to send transaction: {}", e))?;
@@ -277,17 +265,15 @@ fn write_buffer(
         let recent_blockhash = rpc_client
             .get_latest_blockhash()
             .map_err(|e| anyhow!("Failed to get write buffer blockhash: {}", e))?;
-    
-        let write_transaction = Transaction::new_signed_with_payer(
-            &[
-                ComputeBudgetInstruction::set_compute_unit_price(priority_fees_per_cu),
-                ComputeBudgetInstruction::set_compute_unit_limit(3000),
-                write_ix
-            ],
-            Some(&signer.pubkey()),
+
+
+        let write_transaction = simulate_and_create_transaction(
+            &rpc_client,
+            vec![write_ix],
             &[signer],
+            priority_fees_per_cu,
             recent_blockhash,
-        );
+        )?;
     
         let write_signature = rpc_client
             .send_and_confirm_transaction_with_spinner_and_commitment(
@@ -308,9 +294,9 @@ fn write_buffer(
 fn set_and_close_buffer(
     rpc_client: solana_client::rpc_client::RpcClient, 
     idl_address: Pubkey, 
-    buffer_keypair: Keypair, 
+    buffer_keypair: &Keypair, 
     priority_fees_per_cu: u64, 
-    signer: Keypair, 
+    signer: &Keypair, 
     program_pubkey: Pubkey,
     seed: &str,
 ) -> Result<()> {
@@ -321,10 +307,7 @@ fn set_and_close_buffer(
     let buffer_account_size = buffer_account_info.data.len();
     
     println!("Data account size: {}, Buffer account size: {}", idl_account_size, buffer_account_size);
-    let mut instructions = vec![
-        ComputeBudgetInstruction::set_compute_unit_price(priority_fees_per_cu),
-        ComputeBudgetInstruction::set_compute_unit_limit(200000),
-    ];
+    let mut instructions = vec![];
     if buffer_account_size < idl_account_size {
         // Shrink IDL account to buffer size
         let resize = Resize {
@@ -380,12 +363,14 @@ fn set_and_close_buffer(
     let recent_blockhash = rpc_client
         .get_latest_blockhash()
         .map_err(|e| anyhow!("Failed to get recent blockhash: {}", e))?;
-    let transaction = Transaction::new_signed_with_payer(
-        &instructions,
-        Some(&signer.pubkey()),
-        &[&signer],
+    
+    let transaction = simulate_and_create_transaction(
+        &rpc_client,
+        instructions,
+        &[signer],
+        priority_fees_per_cu,
         recent_blockhash,
-    );
+    )?;
 
     let signature = rpc_client
         .send_and_confirm_transaction_with_spinner_and_commitment(
@@ -500,6 +485,50 @@ fn fetch_data_from_url(
     response.bytes()
         .map_err(|e| anyhow!("Failed to read response body: {}", e))
         .map(|b| b.to_vec())
+}
+
+// Add to utility functions section
+fn simulate_and_create_transaction(
+    rpc_client: &solana_client::rpc_client::RpcClient,
+    instructions: Vec<solana_sdk::instruction::Instruction>,
+    signers: &[&Keypair],
+    priority_fees_per_cu: u64,
+    recent_blockhash: solana_sdk::hash::Hash,
+) -> Result<Transaction> {
+    // Add compute budget instructions
+    let mut simulation_instructions = vec![
+        ComputeBudgetInstruction::set_compute_unit_price(priority_fees_per_cu),
+        ComputeBudgetInstruction::set_compute_unit_limit(200000),
+    ];
+    simulation_instructions.extend(instructions.clone());
+
+    // Create and simulate transaction
+    let transaction_to_simulate = Transaction::new_signed_with_payer(
+        &simulation_instructions,
+        Some(&signers[0].pubkey()),
+        signers,
+        recent_blockhash,
+    );
+
+    let simulation = rpc_client.simulate_transaction(&transaction_to_simulate)
+        .map_err(|e| anyhow!("Failed to simulate transaction: {}", e))?;
+
+    let units_consumed: u32 = simulation.value.units_consumed.unwrap_or(0) as u32;
+    println!("Compute units from simulation: {}", units_consumed);
+
+    // Create final transaction with adjusted compute limit
+    let mut final_instructions = vec![
+        ComputeBudgetInstruction::set_compute_unit_price(priority_fees_per_cu),
+        ComputeBudgetInstruction::set_compute_unit_limit(units_consumed + 200),
+    ];
+    final_instructions.extend(instructions);
+
+    Ok(Transaction::new_signed_with_payer(
+        &final_instructions,
+        Some(&signers[0].pubkey()),
+        signers,
+        recent_blockhash,
+    ))
 }
 
 
