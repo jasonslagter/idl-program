@@ -1,7 +1,7 @@
 {
-  "name": "my-idl-test",
-  "description": "make your package easier to find on the npm website",
-  "version": "0.0.19",
+  "name": "solana-program-metadata",
+  "description": "Save Solana program metadata and IDLs on chain",
+  "version": "0.0.4",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/solana-developers/idl-program.git"
@@ -29,6 +29,7 @@
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.30.1",
+    "@solana/web3.js": "^1.95.8",
     "commander": "^11.1.0",
     "pako": "^2.1.0"
   },

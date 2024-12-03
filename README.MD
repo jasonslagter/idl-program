@@ -13,7 +13,7 @@ Also instead of the whole IDL or metadata json people can choose to just upload 
 ### Installation
 
 ```bash
-npm install -g my-idl-test
+npm install -g solana-program-metadata
 ```
 
 ### Commands
