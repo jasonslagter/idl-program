@@ -5,7 +5,7 @@ import { createFromRoot, updateProgramsVisitor } from "codama";
 import { AnchorIdl, rootNodeFromAnchor } from "@codama/nodes-from-anchor";
 import { renderVisitor as renderJavaScriptVisitor } from "@codama/renderers-js";
 import { renderVisitor as renderRustVisitor } from "@codama/renderers-rust";
-import anchorIdl from "../target/idl/upload_idl_anchor.json";
+import anchorIdl from "../target/idl/metadata_program.json";
 
 const rootNode = rootNodeFromAnchor(anchorIdl as AnchorIdl);
 const codama = createFromRoot(rootNode);
@@ -17,4 +17,4 @@ codama.update(
 
 // Generate the client sdks at the given path
 codama.accept(renderJavaScriptVisitor("./codama-sdks/js/src/generated"));
-codama.accept(renderRustVisitor("./rust_cli/src/codama_sdk/generated"));
+codama.accept(renderRustVisitor("../rust_cli/src/codama_sdk"));

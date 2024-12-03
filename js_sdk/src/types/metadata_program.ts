@@ -2,15 +2,15 @@
  * Program IDL in camelCase format in order to be used in JS/TS.
  *
  * Note that this is only a type helper and is not the actual IDL. The original
- * IDL can be found at `target/idl/upload_idl_anchor.json`.
+ * IDL can be found at `target/idl/metadata_program.json`.
  */
-export type UploadIdlAnchor = {
-  "address": "idLB41CuMPpWZmQGGxpsxbyGDWWzono4JnFLJxQakrE",
+export type MetadataProgram = {
+  "address": "pmetaypqG6SiB47xMigYVMAkuHDWeSDXcv3zzDrJJvA",
   "metadata": {
-    "name": "uploadIdlAnchor",
+    "name": "metadataProgram",
     "version": "0.1.0",
     "spec": "0.1.0",
-    "description": "Created with Anchor"
+    "description": "A program to attach metadata to programs. Like for example the IDL or metadata."
   },
   "instructions": [
     {

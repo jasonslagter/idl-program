@@ -5,7 +5,7 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-upload_idl_anchor = "idLB41CuMPpWZmQGGxpsxbyGDWWzono4JnFLJxQakrE"
+metadata_program = "pmetaypqG6SiB47xMigYVMAkuHDWeSDXcv3zzDrJJvA"
 
 [test.validator]
 url = "https://api.devnet.solana.com"

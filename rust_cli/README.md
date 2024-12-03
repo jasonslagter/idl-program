@@ -67,11 +67,11 @@ program-metadata idl upload ./target/idl/my_program.json GrAkz4CQ4zKm9KhZ9Q7PkCm
 # Upload IDL from URL with custom keypair and priority fees
 program-metadata idl upload-url https://example.com/my_idl.json GrAkz4CQ4zKm9KhZ9Q7PkCmqDP7JuSGbpwGY8dxKt6Kj -k ./my-keypair.json -p 1000
 
+# Download IDL to default path (idl.json)
+program-metadata idl download GrAkz4CQ4zKm9KhZ9Q7PkCmqDP7JuSGbpwGY8dxKt6Kj
+
 # Upload metadata using default keypair
 program-metadata metadata upload ./metadata.json GrAkz4CQ4zKm9KhZ9Q7PkCmqDP7JuSGbpwGY8dxKt6Kj
-
-# Download IDL to default path (idl.json)
-program-metadata idl download GrAkz4CQ4zKm9KhZ9Q7PkCmqDP7Ju
 
 # Upload metadata from URL
 program-metadata metadata upload-url https://example.com/metadata.json GrAkz4CQ4zKm9KhZ9Q7PkCmqDP7JuSGbpwGY8dxKt6Kj

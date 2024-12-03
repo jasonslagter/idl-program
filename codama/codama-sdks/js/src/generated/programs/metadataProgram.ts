@@ -18,20 +18,21 @@ import {
   type ParsedCreateBufferInstruction,
   type ParsedInitializeInstruction,
   type ParsedResizeInstruction,
+  type ParsedSetAuthorityInstruction,
   type ParsedSetBufferInstruction,
   type ParsedWriteBufferInstruction,
 } from '../instructions';
 
-export const UPLOAD_IDL_ANCHOR_PROGRAM_ADDRESS =
-  'idLB41CuMPpWZmQGGxpsxbyGDWWzono4JnFLJxQakrE' as Address<'idLB41CuMPpWZmQGGxpsxbyGDWWzono4JnFLJxQakrE'>;
+export const METADATA_PROGRAM_PROGRAM_ADDRESS =
+  'pmetaypqG6SiB47xMigYVMAkuHDWeSDXcv3zzDrJJvA' as Address<'pmetaypqG6SiB47xMigYVMAkuHDWeSDXcv3zzDrJJvA'>;
 
-export enum UploadIdlAnchorAccount {
+export enum MetadataProgramAccount {
   IdlAccount,
 }
 
-export function identifyUploadIdlAnchorAccount(
+export function identifyMetadataProgramAccount(
   account: { data: ReadonlyUint8Array } | ReadonlyUint8Array
-): UploadIdlAnchorAccount {
+): MetadataProgramAccount {
   const data = 'data' in account ? account.data : account;
   if (
     containsBytes(
@@ -42,25 +43,26 @@ export function identifyUploadIdlAnchorAccount(
       0
     )
   ) {
-    return UploadIdlAnchorAccount.IdlAccount;
+    return MetadataProgramAccount.IdlAccount;
   }
   throw new Error(
-    'The provided account could not be identified as a uploadIdlAnchor account.'
+    'The provided account could not be identified as a metadataProgram account.'
   );
 }
 
-export enum UploadIdlAnchorInstruction {
+export enum MetadataProgramInstruction {
   CloseBuffer,
   CreateBuffer,
   Initialize,
   Resize,
+  SetAuthority,
   SetBuffer,
   WriteBuffer,
 }
 
-export function identifyUploadIdlAnchorInstruction(
+export function identifyMetadataProgramInstruction(
   instruction: { data: ReadonlyUint8Array } | ReadonlyUint8Array
-): UploadIdlAnchorInstruction {
+): MetadataProgramInstruction {
   const data = 'data' in instruction ? instruction.data : instruction;
   if (
     containsBytes(
@@ -71,7 +73,7 @@ export function identifyUploadIdlAnchorInstruction(
       0
     )
   ) {
-    return UploadIdlAnchorInstruction.CloseBuffer;
+    return MetadataProgramInstruction.CloseBuffer;
   }
   if (
     containsBytes(
@@ -82,7 +84,7 @@ export function identifyUploadIdlAnchorInstruction(
       0
     )
   ) {
-    return UploadIdlAnchorInstruction.CreateBuffer;
+    return MetadataProgramInstruction.CreateBuffer;
   }
   if (
     containsBytes(
@@ -93,7 +95,7 @@ export function identifyUploadIdlAnchorInstruction(
       0
     )
   ) {
-    return UploadIdlAnchorInstruction.Initialize;
+    return MetadataProgramInstruction.Initialize;
   }
   if (
     containsBytes(
@@ -104,7 +106,18 @@ export function identifyUploadIdlAnchorInstruction(
       0
     )
   ) {
-    return UploadIdlAnchorInstruction.Resize;
+    return MetadataProgramInstruction.Resize;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([133, 250, 37, 21, 110, 163, 26, 121])
+      ),
+      0
+    )
+  ) {
+    return MetadataProgramInstruction.SetAuthority;
   }
   if (
     containsBytes(
@@ -115,7 +128,7 @@ export function identifyUploadIdlAnchorInstruction(
       0
     )
   ) {
-    return UploadIdlAnchorInstruction.SetBuffer;
+    return MetadataProgramInstruction.SetBuffer;
   }
   if (
     containsBytes(
@@ -126,31 +139,34 @@ export function identifyUploadIdlAnchorInstruction(
       0
     )
   ) {
-    return UploadIdlAnchorInstruction.WriteBuffer;
+    return MetadataProgramInstruction.WriteBuffer;
   }
   throw new Error(
-    'The provided instruction could not be identified as a uploadIdlAnchor instruction.'
+    'The provided instruction could not be identified as a metadataProgram instruction.'
   );
 }
 
-export type ParsedUploadIdlAnchorInstruction<
-  TProgram extends string = 'idLB41CuMPpWZmQGGxpsxbyGDWWzono4JnFLJxQakrE',
+export type ParsedMetadataProgramInstruction<
+  TProgram extends string = 'pmetaypqG6SiB47xMigYVMAkuHDWeSDXcv3zzDrJJvA',
 > =
   | ({
-      instructionType: UploadIdlAnchorInstruction.CloseBuffer;
+      instructionType: MetadataProgramInstruction.CloseBuffer;
     } & ParsedCloseBufferInstruction<TProgram>)
   | ({
-      instructionType: UploadIdlAnchorInstruction.CreateBuffer;
+      instructionType: MetadataProgramInstruction.CreateBuffer;
     } & ParsedCreateBufferInstruction<TProgram>)
   | ({
-      instructionType: UploadIdlAnchorInstruction.Initialize;
+      instructionType: MetadataProgramInstruction.Initialize;
     } & ParsedInitializeInstruction<TProgram>)
   | ({
-      instructionType: UploadIdlAnchorInstruction.Resize;
+      instructionType: MetadataProgramInstruction.Resize;
     } & ParsedResizeInstruction<TProgram>)
   | ({
-      instructionType: UploadIdlAnchorInstruction.SetBuffer;
+      instructionType: MetadataProgramInstruction.SetAuthority;
+    } & ParsedSetAuthorityInstruction<TProgram>)
+  | ({
+      instructionType: MetadataProgramInstruction.SetBuffer;
     } & ParsedSetBufferInstruction<TProgram>)
   | ({
-      instructionType: UploadIdlAnchorInstruction.WriteBuffer;
+      instructionType: MetadataProgramInstruction.WriteBuffer;
     } & ParsedWriteBufferInstruction<TProgram>);

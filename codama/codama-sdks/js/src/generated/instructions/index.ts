@@ -10,5 +10,6 @@ export * from './closeBuffer';
 export * from './createBuffer';
 export * from './initialize';
 export * from './resize';
+export * from './setAuthority';
 export * from './setBuffer';
 export * from './writeBuffer';

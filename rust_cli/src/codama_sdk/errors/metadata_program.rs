@@ -9,7 +9,7 @@ use num_derive::FromPrimitive;
 use thiserror::Error;
 
 #[derive(Clone, Debug, Eq, Error, FromPrimitive, PartialEq)]
-pub enum UploadIdlAnchorError {
+pub enum MetadataProgramError {
     /// 6000 - Only the program upgrade authority can initialize the IDL account
     #[error("Only the program upgrade authority can initialize the IDL account")]
     WrongAuthority = 0x1770,
@@ -24,7 +24,7 @@ pub enum UploadIdlAnchorError {
     ShouldBeProgramAccount = 0x1773,
 }
 
-impl solana_program::program_error::PrintProgramError for UploadIdlAnchorError {
+impl solana_program::program_error::PrintProgramError for MetadataProgramError {
     fn print<E>(&self) {
         solana_program::msg!(&self.to_string());
     }

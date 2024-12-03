@@ -37,7 +37,7 @@ impl CreateBuffer {
     let data = CreateBufferInstructionData::new().try_to_vec().unwrap();
     
     solana_program::instruction::Instruction {
-      program_id: crate::UPLOAD_IDL_ANCHOR_ID,
+      program_id: crate::METADATA_PROGRAM_ID,
       accounts,
       data,
     }
@@ -186,7 +186,7 @@ impl<'a, 'b> CreateBufferCpi<'a, 'b> {
     let data = CreateBufferInstructionData::new().try_to_vec().unwrap();
     
     let instruction = solana_program::instruction::Instruction {
-      program_id: crate::UPLOAD_IDL_ANCHOR_ID,
+      program_id: crate::METADATA_PROGRAM_ID,
       accounts,
       data,
     };

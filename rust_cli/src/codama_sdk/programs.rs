@@ -8,6 +8,6 @@
 use solana_program::{pubkey, pubkey::Pubkey};
 
 
-  /// `upload_idl_anchor` program ID.
-  pub const UPLOAD_IDL_ANCHOR_ID: Pubkey = pubkey!("idLB41CuMPpWZmQGGxpsxbyGDWWzono4JnFLJxQakrE");
+  /// `metadata_program` program ID.
+  pub const METADATA_PROGRAM_ID: Pubkey = pubkey!("pmetaypqG6SiB47xMigYVMAkuHDWeSDXcv3zzDrJJvA");
 

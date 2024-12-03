@@ -7,48 +7,35 @@
 
 use borsh::BorshDeserialize;
 use borsh::BorshSerialize;
+use solana_program::pubkey::Pubkey;
 
 /// Accounts.
-pub struct Resize {
+pub struct SetAuthority {
       
               
           pub idl: solana_program::pubkey::Pubkey,
           
               
-          pub signer: solana_program::pubkey::Pubkey,
-          
-              
-          pub system_program: solana_program::pubkey::Pubkey,
-          
-              
-          pub program_id: solana_program::pubkey::Pubkey,
+          pub authority: solana_program::pubkey::Pubkey,
       }
 
-impl Resize {
-  pub fn instruction(&self, args: ResizeInstructionArgs) -> solana_program::instruction::Instruction {
+impl SetAuthority {
+  pub fn instruction(&self, args: SetAuthorityInstructionArgs) -> solana_program::instruction::Instruction {
     self.instruction_with_remaining_accounts(args, &[])
   }
   #[allow(clippy::vec_init_then_push)]
-  pub fn instruction_with_remaining_accounts(&self, args: ResizeInstructionArgs, remaining_accounts: &[solana_program::instruction::AccountMeta]) -> solana_program::instruction::Instruction {
-    let mut accounts = Vec::with_capacity(4+ remaining_accounts.len());
+  pub fn instruction_with_remaining_accounts(&self, args: SetAuthorityInstructionArgs, remaining_accounts: &[solana_program::instruction::AccountMeta]) -> solana_program::instruction::Instruction {
+    let mut accounts = Vec::with_capacity(2+ remaining_accounts.len());
                             accounts.push(solana_program::instruction::AccountMeta::new(
             self.idl,
             false
           ));
-                                          accounts.push(solana_program::instruction::AccountMeta::new(
-            self.signer,
+                                          accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+            self.authority,
             true
           ));
-                                          accounts.push(solana_program::instruction::AccountMeta::new_readonly(
-            self.system_program,
-            false
-          ));
-                                          accounts.push(solana_program::instruction::AccountMeta::new_readonly(
-            self.program_id,
-            false
-          ));
                       accounts.extend_from_slice(remaining_accounts);
-    let mut data = ResizeInstructionData::new().try_to_vec().unwrap();
+    let mut data = SetAuthorityInstructionData::new().try_to_vec().unwrap();
           let mut args = args.try_to_vec().unwrap();
       data.append(&mut args);
     
@@ -61,19 +48,19 @@ impl Resize {
 }
 
 #[derive(BorshDeserialize, BorshSerialize)]
-pub struct ResizeInstructionData {
+pub struct SetAuthorityInstructionData {
             discriminator: [u8; 8],
-                  }
+            }
 
-impl ResizeInstructionData {
+impl SetAuthorityInstructionData {
   pub fn new() -> Self {
     Self {
-                        discriminator: [74, 27, 74, 155, 56, 134, 175, 125],
-                                              }
+                        discriminator: [133, 250, 37, 21, 110, 163, 26, 121],
+                                }
   }
 }
 
-impl Default for ResizeInstructionData {
+impl Default for SetAuthorityInstructionData {
   fn default() -> Self {
     Self::new()
   }
@@ -81,32 +68,26 @@ impl Default for ResizeInstructionData {
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct ResizeInstructionArgs {
-                  pub len: u16,
-                pub seed: String,
+pub struct SetAuthorityInstructionArgs {
+                  pub new_authority: Pubkey,
       }
 
 
-/// Instruction builder for `Resize`.
+/// Instruction builder for `SetAuthority`.
 ///
 /// ### Accounts:
 ///
                 ///   0. `[writable]` idl
-                      ///   1. `[writable, signer]` signer
-                ///   2. `[optional]` system_program (default to `11111111111111111111111111111111`)
-          ///   3. `[]` program_id
+                ///   1. `[signer]` authority
 #[derive(Clone, Debug, Default)]
-pub struct ResizeBuilder {
+pub struct SetAuthorityBuilder {
             idl: Option<solana_program::pubkey::Pubkey>,
-                signer: Option<solana_program::pubkey::Pubkey>,
-                system_program: Option<solana_program::pubkey::Pubkey>,
-                program_id: Option<solana_program::pubkey::Pubkey>,
-                        len: Option<u16>,
-                seed: Option<String>,
+                authority: Option<solana_program::pubkey::Pubkey>,
+                        new_authority: Option<Pubkey>,
         __remaining_accounts: Vec<solana_program::instruction::AccountMeta>,
 }
 
-impl ResizeBuilder {
+impl SetAuthorityBuilder {
   pub fn new() -> Self {
     Self::default()
   }
@@ -116,29 +97,13 @@ impl ResizeBuilder {
                     self
     }
             #[inline(always)]
-    pub fn signer(&mut self, signer: solana_program::pubkey::Pubkey) -> &mut Self {
-                        self.signer = Some(signer);
-                    self
-    }
-            /// `[optional account, default to '11111111111111111111111111111111']`
-#[inline(always)]
-    pub fn system_program(&mut self, system_program: solana_program::pubkey::Pubkey) -> &mut Self {
-                        self.system_program = Some(system_program);
-                    self
-    }
-            #[inline(always)]
-    pub fn program_id(&mut self, program_id: solana_program::pubkey::Pubkey) -> &mut Self {
-                        self.program_id = Some(program_id);
+    pub fn authority(&mut self, authority: solana_program::pubkey::Pubkey) -> &mut Self {
+                        self.authority = Some(authority);
                     self
     }
                     #[inline(always)]
-      pub fn len(&mut self, len: u16) -> &mut Self {
-        self.len = Some(len);
-        self
-      }
-                #[inline(always)]
-      pub fn seed(&mut self, seed: String) -> &mut Self {
-        self.seed = Some(seed);
+      pub fn new_authority(&mut self, new_authority: Pubkey) -> &mut Self {
+        self.new_authority = Some(new_authority);
         self
       }
         /// Add an additional account to the instruction.
@@ -155,39 +120,30 @@ impl ResizeBuilder {
   }
   #[allow(clippy::clone_on_copy)]
   pub fn instruction(&self) -> solana_program::instruction::Instruction {
-    let accounts = Resize {
+    let accounts = SetAuthority {
                               idl: self.idl.expect("idl is not set"),
-                                        signer: self.signer.expect("signer is not set"),
-                                        system_program: self.system_program.unwrap_or(solana_program::pubkey!("11111111111111111111111111111111")),
-                                        program_id: self.program_id.expect("program_id is not set"),
+                                        authority: self.authority.expect("authority is not set"),
                       };
-          let args = ResizeInstructionArgs {
-                                                              len: self.len.clone().expect("len is not set"),
-                                                                  seed: self.seed.clone().expect("seed is not set"),
+          let args = SetAuthorityInstructionArgs {
+                                                              new_authority: self.new_authority.clone().expect("new_authority is not set"),
                                     };
     
     accounts.instruction_with_remaining_accounts(args, &self.__remaining_accounts)
   }
 }
 
-  /// `resize` CPI accounts.
-  pub struct ResizeCpiAccounts<'a, 'b> {
+  /// `set_authority` CPI accounts.
+  pub struct SetAuthorityCpiAccounts<'a, 'b> {
           
                     
               pub idl: &'b solana_program::account_info::AccountInfo<'a>,
                 
                     
-              pub signer: &'b solana_program::account_info::AccountInfo<'a>,
-                
-                    
-              pub system_program: &'b solana_program::account_info::AccountInfo<'a>,
-                
-                    
-              pub program_id: &'b solana_program::account_info::AccountInfo<'a>,
+              pub authority: &'b solana_program::account_info::AccountInfo<'a>,
             }
 
-/// `resize` CPI instruction.
-pub struct ResizeCpi<'a, 'b> {
+/// `set_authority` CPI instruction.
+pub struct SetAuthorityCpi<'a, 'b> {
   /// The program to invoke.
   pub __program: &'b solana_program::account_info::AccountInfo<'a>,
       
@@ -195,29 +151,21 @@ pub struct ResizeCpi<'a, 'b> {
           pub idl: &'b solana_program::account_info::AccountInfo<'a>,
           
               
-          pub signer: &'b solana_program::account_info::AccountInfo<'a>,
-          
-              
-          pub system_program: &'b solana_program::account_info::AccountInfo<'a>,
-          
-              
-          pub program_id: &'b solana_program::account_info::AccountInfo<'a>,
+          pub authority: &'b solana_program::account_info::AccountInfo<'a>,
             /// The arguments for the instruction.
-    pub __args: ResizeInstructionArgs,
+    pub __args: SetAuthorityInstructionArgs,
   }
 
-impl<'a, 'b> ResizeCpi<'a, 'b> {
+impl<'a, 'b> SetAuthorityCpi<'a, 'b> {
   pub fn new(
     program: &'b solana_program::account_info::AccountInfo<'a>,
-          accounts: ResizeCpiAccounts<'a, 'b>,
-              args: ResizeInstructionArgs,
+          accounts: SetAuthorityCpiAccounts<'a, 'b>,
+              args: SetAuthorityInstructionArgs,
       ) -> Self {
     Self {
       __program: program,
               idl: accounts.idl,
-              signer: accounts.signer,
-              system_program: accounts.system_program,
-              program_id: accounts.program_id,
+              authority: accounts.authority,
                     __args: args,
           }
   }
@@ -240,22 +188,14 @@ impl<'a, 'b> ResizeCpi<'a, 'b> {
     signers_seeds: &[&[&[u8]]],
     remaining_accounts: &[(&'b solana_program::account_info::AccountInfo<'a>, bool, bool)]
   ) -> solana_program::entrypoint::ProgramResult {
-    let mut accounts = Vec::with_capacity(4+ remaining_accounts.len());
+    let mut accounts = Vec::with_capacity(2+ remaining_accounts.len());
                             accounts.push(solana_program::instruction::AccountMeta::new(
             *self.idl.key,
             false
           ));
-                                          accounts.push(solana_program::instruction::AccountMeta::new(
-            *self.signer.key,
+                                          accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+            *self.authority.key,
             true
-          ));
-                                          accounts.push(solana_program::instruction::AccountMeta::new_readonly(
-            *self.system_program.key,
-            false
-          ));
-                                          accounts.push(solana_program::instruction::AccountMeta::new_readonly(
-            *self.program_id.key,
-            false
           ));
                       remaining_accounts.iter().for_each(|remaining_account| {
       accounts.push(solana_program::instruction::AccountMeta {
@@ -264,7 +204,7 @@ impl<'a, 'b> ResizeCpi<'a, 'b> {
           is_writable: remaining_account.2,
       })
     });
-    let mut data = ResizeInstructionData::new().try_to_vec().unwrap();
+    let mut data = SetAuthorityInstructionData::new().try_to_vec().unwrap();
           let mut args = self.__args.try_to_vec().unwrap();
       data.append(&mut args);
     
@@ -273,12 +213,10 @@ impl<'a, 'b> ResizeCpi<'a, 'b> {
       accounts,
       data,
     };
-    let mut account_infos = Vec::with_capacity(5 + remaining_accounts.len());
+    let mut account_infos = Vec::with_capacity(3 + remaining_accounts.len());
     account_infos.push(self.__program.clone());
                   account_infos.push(self.idl.clone());
-                        account_infos.push(self.signer.clone());
-                        account_infos.push(self.system_program.clone());
-                        account_infos.push(self.program_id.clone());
+                        account_infos.push(self.authority.clone());
               remaining_accounts.iter().for_each(|remaining_account| account_infos.push(remaining_account.0.clone()));
 
     if signers_seeds.is_empty() {
@@ -289,29 +227,24 @@ impl<'a, 'b> ResizeCpi<'a, 'b> {
   }
 }
 
-/// Instruction builder for `Resize` via CPI.
+/// Instruction builder for `SetAuthority` via CPI.
 ///
 /// ### Accounts:
 ///
                 ///   0. `[writable]` idl
-                      ///   1. `[writable, signer]` signer
-          ///   2. `[]` system_program
-          ///   3. `[]` program_id
+                ///   1. `[signer]` authority
 #[derive(Clone, Debug)]
-pub struct ResizeCpiBuilder<'a, 'b> {
-  instruction: Box<ResizeCpiBuilderInstruction<'a, 'b>>,
+pub struct SetAuthorityCpiBuilder<'a, 'b> {
+  instruction: Box<SetAuthorityCpiBuilderInstruction<'a, 'b>>,
 }
 
-impl<'a, 'b> ResizeCpiBuilder<'a, 'b> {
+impl<'a, 'b> SetAuthorityCpiBuilder<'a, 'b> {
   pub fn new(program: &'b solana_program::account_info::AccountInfo<'a>) -> Self {
-    let instruction = Box::new(ResizeCpiBuilderInstruction {
+    let instruction = Box::new(SetAuthorityCpiBuilderInstruction {
       __program: program,
               idl: None,
-              signer: None,
-              system_program: None,
-              program_id: None,
-                                            len: None,
-                                seed: None,
+              authority: None,
+                                            new_authority: None,
                     __remaining_accounts: Vec::new(),
     });
     Self { instruction }
@@ -322,28 +255,13 @@ impl<'a, 'b> ResizeCpiBuilder<'a, 'b> {
                     self
     }
       #[inline(always)]
-    pub fn signer(&mut self, signer: &'b solana_program::account_info::AccountInfo<'a>) -> &mut Self {
-                        self.instruction.signer = Some(signer);
-                    self
-    }
-      #[inline(always)]
-    pub fn system_program(&mut self, system_program: &'b solana_program::account_info::AccountInfo<'a>) -> &mut Self {
-                        self.instruction.system_program = Some(system_program);
-                    self
-    }
-      #[inline(always)]
-    pub fn program_id(&mut self, program_id: &'b solana_program::account_info::AccountInfo<'a>) -> &mut Self {
-                        self.instruction.program_id = Some(program_id);
+    pub fn authority(&mut self, authority: &'b solana_program::account_info::AccountInfo<'a>) -> &mut Self {
+                        self.instruction.authority = Some(authority);
                     self
     }
                     #[inline(always)]
-      pub fn len(&mut self, len: u16) -> &mut Self {
-        self.instruction.len = Some(len);
-        self
-      }
-                #[inline(always)]
-      pub fn seed(&mut self, seed: String) -> &mut Self {
-        self.instruction.seed = Some(seed);
+      pub fn new_authority(&mut self, new_authority: Pubkey) -> &mut Self {
+        self.instruction.new_authority = Some(new_authority);
         self
       }
         /// Add an additional account to the instruction.
@@ -368,20 +286,15 @@ impl<'a, 'b> ResizeCpiBuilder<'a, 'b> {
   #[allow(clippy::clone_on_copy)]
   #[allow(clippy::vec_init_then_push)]
   pub fn invoke_signed(&self, signers_seeds: &[&[&[u8]]]) -> solana_program::entrypoint::ProgramResult {
-          let args = ResizeInstructionArgs {
-                                                              len: self.instruction.len.clone().expect("len is not set"),
-                                                                  seed: self.instruction.seed.clone().expect("seed is not set"),
+          let args = SetAuthorityInstructionArgs {
+                                                              new_authority: self.instruction.new_authority.clone().expect("new_authority is not set"),
                                     };
-        let instruction = ResizeCpi {
+        let instruction = SetAuthorityCpi {
         __program: self.instruction.__program,
                   
           idl: self.instruction.idl.expect("idl is not set"),
                   
-          signer: self.instruction.signer.expect("signer is not set"),
-                  
-          system_program: self.instruction.system_program.expect("system_program is not set"),
-                  
-          program_id: self.instruction.program_id.expect("program_id is not set"),
+          authority: self.instruction.authority.expect("authority is not set"),
                           __args: args,
             };
     instruction.invoke_signed_with_remaining_accounts(signers_seeds, &self.instruction.__remaining_accounts)
@@ -389,14 +302,11 @@ impl<'a, 'b> ResizeCpiBuilder<'a, 'b> {
 }
 
 #[derive(Clone, Debug)]
-struct ResizeCpiBuilderInstruction<'a, 'b> {
+struct SetAuthorityCpiBuilderInstruction<'a, 'b> {
   __program: &'b solana_program::account_info::AccountInfo<'a>,
             idl: Option<&'b solana_program::account_info::AccountInfo<'a>>,
-                signer: Option<&'b solana_program::account_info::AccountInfo<'a>>,
-                system_program: Option<&'b solana_program::account_info::AccountInfo<'a>>,
-                program_id: Option<&'b solana_program::account_info::AccountInfo<'a>>,
-                        len: Option<u16>,
-                seed: Option<String>,
+                authority: Option<&'b solana_program::account_info::AccountInfo<'a>>,
+                        new_authority: Option<Pubkey>,
         /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
   __remaining_accounts: Vec<(&'b solana_program::account_info::AccountInfo<'a>, bool, bool)>,
 }

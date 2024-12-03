@@ -2,7 +2,7 @@ mod commands;
 mod config;
 mod cli;
 mod codama_sdk;
-use codama_sdk::programs::UPLOAD_IDL_ANCHOR_ID;
+use codama_sdk::programs::METADATA_PROGRAM_ID;
 
 use anyhow::{Result, anyhow};
 

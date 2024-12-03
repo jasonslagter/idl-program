@@ -10,6 +10,8 @@ import {
   combineCodec,
   fixDecoderSize,
   fixEncoderSize,
+  getAddressDecoder,
+  getAddressEncoder,
   getBytesDecoder,
   getBytesEncoder,
   getStructDecoder,
@@ -32,28 +34,26 @@ import {
 import { METADATA_PROGRAM_PROGRAM_ADDRESS } from '../programs';
 import { getAccountMetaFactory, type ResolvedAccount } from '../shared';
 
-export const CREATE_BUFFER_DISCRIMINATOR = new Uint8Array([
-  175, 76, 101, 74, 224, 249, 104, 170,
+export const SET_AUTHORITY_DISCRIMINATOR = new Uint8Array([
+  133, 250, 37, 21, 110, 163, 26, 121,
 ]);
 
-export function getCreateBufferDiscriminatorBytes() {
+export function getSetAuthorityDiscriminatorBytes() {
   return fixEncoderSize(getBytesEncoder(), 8).encode(
-    CREATE_BUFFER_DISCRIMINATOR
+    SET_AUTHORITY_DISCRIMINATOR
   );
 }
 
-export type CreateBufferInstruction<
+export type SetAuthorityInstruction<
   TProgram extends string = typeof METADATA_PROGRAM_PROGRAM_ADDRESS,
-  TAccountBuffer extends string | IAccountMeta<string> = string,
+  TAccountIdl extends string | IAccountMeta<string> = string,
   TAccountAuthority extends string | IAccountMeta<string> = string,
   TRemainingAccounts extends readonly IAccountMeta<string>[] = [],
 > = IInstruction<TProgram> &
   IInstructionWithData<Uint8Array> &
   IInstructionWithAccounts<
     [
-      TAccountBuffer extends string
-        ? WritableAccount<TAccountBuffer>
-        : TAccountBuffer,
+      TAccountIdl extends string ? WritableAccount<TAccountIdl> : TAccountIdl,
       TAccountAuthority extends string
         ? ReadonlySignerAccount<TAccountAuthority> &
             IAccountSignerMeta<TAccountAuthority>
@@ -62,56 +62,64 @@ export type CreateBufferInstruction<
     ]
   >;
 
-export type CreateBufferInstructionData = { discriminator: ReadonlyUint8Array };
+export type SetAuthorityInstructionData = {
+  discriminator: ReadonlyUint8Array;
+  newAuthority: Address;
+};
 
-export type CreateBufferInstructionDataArgs = {};
+export type SetAuthorityInstructionDataArgs = { newAuthority: Address };
 
-export function getCreateBufferInstructionDataEncoder(): Encoder<CreateBufferInstructionDataArgs> {
+export function getSetAuthorityInstructionDataEncoder(): Encoder<SetAuthorityInstructionDataArgs> {
   return transformEncoder(
-    getStructEncoder([['discriminator', fixEncoderSize(getBytesEncoder(), 8)]]),
-    (value) => ({ ...value, discriminator: CREATE_BUFFER_DISCRIMINATOR })
+    getStructEncoder([
+      ['discriminator', fixEncoderSize(getBytesEncoder(), 8)],
+      ['newAuthority', getAddressEncoder()],
+    ]),
+    (value) => ({ ...value, discriminator: SET_AUTHORITY_DISCRIMINATOR })
   );
 }
 
-export function getCreateBufferInstructionDataDecoder(): Decoder<CreateBufferInstructionData> {
+export function getSetAuthorityInstructionDataDecoder(): Decoder<SetAuthorityInstructionData> {
   return getStructDecoder([
     ['discriminator', fixDecoderSize(getBytesDecoder(), 8)],
+    ['newAuthority', getAddressDecoder()],
   ]);
 }
 
-export function getCreateBufferInstructionDataCodec(): Codec<
-  CreateBufferInstructionDataArgs,
-  CreateBufferInstructionData
+export function getSetAuthorityInstructionDataCodec(): Codec<
+  SetAuthorityInstructionDataArgs,
+  SetAuthorityInstructionData
 > {
   return combineCodec(
-    getCreateBufferInstructionDataEncoder(),
-    getCreateBufferInstructionDataDecoder()
+    getSetAuthorityInstructionDataEncoder(),
+    getSetAuthorityInstructionDataDecoder()
   );
 }
 
-export type CreateBufferInput<
-  TAccountBuffer extends string = string,
+export type SetAuthorityInput<
+  TAccountIdl extends string = string,
   TAccountAuthority extends string = string,
 > = {
-  buffer: Address<TAccountBuffer>;
+  idl: Address<TAccountIdl>;
   authority: TransactionSigner<TAccountAuthority>;
+  newAuthority: SetAuthorityInstructionDataArgs['newAuthority'];
 };
 
-export function getCreateBufferInstruction<
-  TAccountBuffer extends string,
+export function getSetAuthorityInstruction<
+  TAccountIdl extends string,
   TAccountAuthority extends string,
   TProgramAddress extends Address = typeof METADATA_PROGRAM_PROGRAM_ADDRESS,
 >(
-  input: CreateBufferInput<TAccountBuffer, TAccountAuthority>,
+  input: SetAuthorityInput<TAccountIdl, TAccountAuthority>,
   config?: { programAddress?: TProgramAddress }
-): CreateBufferInstruction<TProgramAddress, TAccountBuffer, TAccountAuthority> {
+): SetAuthorityInstruction<TProgramAddress, TAccountIdl, TAccountAuthority> {
   // Program address.
   const programAddress =
     config?.programAddress ?? METADATA_PROGRAM_PROGRAM_ADDRESS;
 
   // Original accounts.
   const originalAccounts = {
-    buffer: { value: input.buffer ?? null, isWritable: true },
+    idl: { value: input.idl ?? null, isWritable: true },
     authority: { value: input.authority ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
@@ -119,43 +127,44 @@ export function getCreateBufferInstruction<
     ResolvedAccount
   >;
 
+  // Original args.
+  const args = { ...input };
+
   const getAccountMeta = getAccountMetaFactory(programAddress, 'programId');
   const instruction = {
     accounts: [
-      getAccountMeta(accounts.buffer),
+      getAccountMeta(accounts.idl),
       getAccountMeta(accounts.authority),
     ],
     programAddress,
-    data: getCreateBufferInstructionDataEncoder().encode({}),
-  } as CreateBufferInstruction<
-    TProgramAddress,
-    TAccountBuffer,
-    TAccountAuthority
-  >;
+    data: getSetAuthorityInstructionDataEncoder().encode(
+      args as SetAuthorityInstructionDataArgs
+    ),
+  } as SetAuthorityInstruction<TProgramAddress, TAccountIdl, TAccountAuthority>;
 
   return instruction;
 }
 
-export type ParsedCreateBufferInstruction<
+export type ParsedSetAuthorityInstruction<
   TProgram extends string = typeof METADATA_PROGRAM_PROGRAM_ADDRESS,
   TAccountMetas extends readonly IAccountMeta[] = readonly IAccountMeta[],
 > = {
   programAddress: Address<TProgram>;
   accounts: {
-    buffer: TAccountMetas[0];
+    idl: TAccountMetas[0];
     authority: TAccountMetas[1];
   };
-  data: CreateBufferInstructionData;
+  data: SetAuthorityInstructionData;
 };
 
-export function parseCreateBufferInstruction<
+export function parseSetAuthorityInstruction<
   TProgram extends string,
   TAccountMetas extends readonly IAccountMeta[],
 >(
   instruction: IInstruction<TProgram> &
     IInstructionWithAccounts<TAccountMetas> &
     IInstructionWithData<Uint8Array>
-): ParsedCreateBufferInstruction<TProgram, TAccountMetas> {
+): ParsedSetAuthorityInstruction<TProgram, TAccountMetas> {
   if (instruction.accounts.length < 2) {
     // TODO: Coded error.
     throw new Error('Not enough accounts');
@@ -169,9 +178,9 @@ export function parseCreateBufferInstruction<
   return {
     programAddress: instruction.programAddress,
     accounts: {
-      buffer: getNextAccount(),
+      idl: getNextAccount(),
       authority: getNextAccount(),
     },
-    data: getCreateBufferInstructionDataDecoder().decode(instruction.data),
+    data: getSetAuthorityInstructionDataDecoder().decode(instruction.data),
   };
 }

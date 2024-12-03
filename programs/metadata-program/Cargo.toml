@@ -1,12 +1,12 @@
 [package]
-name = "upload-idl-anchor"
+name = "metadata-program"
 version = "0.1.0"
-description = "Created with Anchor"
+description = "A program to attach metadata to programs. Like for example the IDL or metadata."
 edition = "2021"
 
 [lib]
 crate-type = ["cdylib", "lib"]
-name = "upload_idl_anchor"
+name = "metadata_program"
 
 [features]
 default = []

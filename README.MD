@@ -18,77 +18,83 @@ npm install -g my-idl-test
 
 ### Commands
 
-#### Upload Metadata from JSON File
+#### IDL Commands
 
-This will compress and write the metadata to the program's PDA.
+Upload IDL from a JSON file:
 
 ```bash
-program-metadata uploadMetadata \
-  -k <keypair-path> \
-  -j <json-path> \
-  -p <program-id> \
-  -u <rpc-url> \
-  [-f <priority-fees>]
+program-metadata idl upload <file> <program-id> \
+  [-k <keypair-path>] \
+  [-u <rpc-url>] \
+  [-p <priority-fees>]
 ```
 
-#### Upload IDL from JSON File
-
-This will compress and write the IDL json file to the program's PDA.
+Upload IDL from URL:
 
 ```bash
-program-metadata uploadIdl \
-  -k <keypair-path> \
-  -j <json-path> \
-  -p <program-id> \
-  -u <rpc-url> \
-  [-f <priority-fees>]
+program-metadata idl upload-url <url> <program-id> \
+  [-k <keypair-path>] \
+  [-u <rpc-url>] \
+  [-p <priority-fees>]
 ```
 
-#### Upload Metadata URL
-
-This will just write a URL on chain to save on chain space and easy update.
-You can host it where ever you want.
+Download IDL to file:
 
 ```bash
-program-metadata uploadMetadataUrl \
-  -k <keypair-path> \
-  -j <url> \
-  -p <program-id> \
-  -u <rpc-url> \
-  [-f <priority-fees>]
+program-metadata idl download <program-id> [output-file] \
+  [-u <rpc-url>]
 ```
 
-#### Upload IDL URL
+#### Metadata Commands
 
-This will just write a URL to the IDL on chain to save on chain space and easy update.
-You can host it where ever you want.
+Upload metadata from JSON file:
 
 ```bash
-program-metadata uploadIdlUrl \
-  -k <keypair-path> \
-  -j <url> \
-  -p <program-id> \
-  -u <rpc-url> \
-  [-f <priority-fees>]
+program-metadata metadata upload <file> <program-id> \
+  [-k <keypair-path>] \
+  [-u <rpc-url>] \
+  [-p <priority-fees>]
+```
+
+Upload metadata from URL:
+
+```bash
+program-metadata metadata upload-url <url> <program-id> \
+  [-k <keypair-path>] \
+  [-u <rpc-url>] \
+  [-p <priority-fees>]
+```
+
+Download metadata to file:
+
+```bash
+program-metadata metadata download <program-id> [output-file] \
+  [-u <rpc-url>]
 ```
 
 ### Options
 
-- `-k, --keypair <path>`: Path to keypair file (must be program's upgrade authority)
-- `-j, --jsonPath <path>`: Path to JSON file for metadata/IDL
-- `-j, --url <url>`: URL for metadata/IDL JSON
-- `-p, --programId <address>`: Program ID
-- `-u, --url <string>`: RPC URL (optional, defaults to local)
-- `-f, --fees <number>`: Priority fees per compute unit (optional, defaults to 0)
+- `-k, --keypair <path>`: Path to keypair file (optional, defaults to local Solana config)
+- `-u, --url <string>`: RPC URL (optional, defaults to http://127.0.0.1:8899)
+- `-p, --priority-fees <number>`: Priority fees per compute unit (optional, defaults to 0)
 
-### Example
+### Examples
 
 ```bash
-npm run cli -- uploadMetadata \
-  -k ./keypair.json \
-  -j ./metadata.json \
-  -p 6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A \
+# Upload IDL using default keypair
+program-metadata idl upload ./target/idl/my_program.json GrAkz4CQ4zKm9KhZ9Q7PkCmqDP7JuSGbpwGY8dxKt6Kj
+
+# Upload metadata with custom keypair and RPC URL
+program-metadata metadata upload ./metadata.json GrAkz4CQ4zKm9KhZ9Q7PkCmqDP7JuSGbpwGY8dxKt6Kj \
+  -k ./my-keypair.json \
   -u https://api.devnet.solana.com
+
+# Download IDL to custom file
+program-metadata idl download GrAkz4CQ4zKm9KhZ9Q7PkCmqDP7JuSGbpwGY8dxKt6Kj ./my-idl.json
+
+# Local development examples
+npm run cli -- idl upload ../tests/testidl.json 6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A -k ../tests/wallet2.json
+npm run cli -- metadata upload ../tests/metadata.json 6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A -k ../tests/wallet2.json
 ```
 
 ## JavaScript Usage
@@ -120,9 +126,11 @@ FetchMetadata(programId);
 - js v2 needed?
 - move upgrade authority to multisig and deploy program to mainnet
 - Create Rust CLI (assignee @wealthineer)
-- Add Support for non canonical PDAs. Needed? Will make the program more complex. 
-- Add test case for bigger 10mb IDLs. 
+- Add Support for non canonical PDAs. Needed? Will make the program more complex.
+- Add test case for bigger 10mb IDLs.
 - Write Web3js@2 cli using codama (generated client is already in the codama folder) (Good first issue)
+- validate URL parameters (e.g. no trailing slashes, starts with https:// etc.)
+- refactor to make the program more metadata instead of only IDL focused
 
 ## Done
 
@@ -145,8 +153,12 @@ FetchMetadata(programId);
 
 ## Local development
 
+You can test the cli commands like this:
+
 ```bash
-npm run cli uploadMetadata -k keypair.json -j metadata.json -p 6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A
+npm run cli -- idl upload ../tests/testidl.json 6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A  -k "../tests/wallet2.json"
+
+npm run cli -- metadata upload ../tests/metadata.json 6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A  -k "../tests/wallet2.json"
 ```
 
 Run tests

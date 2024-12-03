@@ -5,7 +5,7 @@
 //! <https://github.com/codama-idl/codama>
 //!
 
-      pub(crate) mod upload_idl_anchor;
+      pub(crate) mod metadata_program;
   
-      pub use self::upload_idl_anchor::UploadIdlAnchorError;
+      pub use self::metadata_program::MetadataProgramError;
   

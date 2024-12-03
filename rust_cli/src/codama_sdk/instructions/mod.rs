@@ -9,6 +9,7 @@
   pub(crate) mod r#create_buffer;
   pub(crate) mod r#initialize;
   pub(crate) mod r#resize;
+  pub(crate) mod r#set_authority;
   pub(crate) mod r#set_buffer;
   pub(crate) mod r#write_buffer;
 
@@ -16,6 +17,7 @@
   pub use self::r#create_buffer::*;
   pub use self::r#initialize::*;
   pub use self::r#resize::*;
+  pub use self::r#set_authority::*;
   pub use self::r#set_buffer::*;
   pub use self::r#write_buffer::*;
 

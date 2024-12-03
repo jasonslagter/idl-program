@@ -1,7 +1,7 @@
 {
   "name": "my-idl-test",
   "description": "make your package easier to find on the npm website",
-  "version": "0.0.18",
+  "version": "0.0.19",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/solana-developers/idl-program.git"

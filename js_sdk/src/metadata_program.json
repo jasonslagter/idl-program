@@ -1,0 +1,336 @@
+{
+  "address": "pmetaypqG6SiB47xMigYVMAkuHDWeSDXcv3zzDrJJvA",
+  "metadata": {
+    "name": "metadata_program",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "A program to attach metadata to programs. Like for example the IDL or metadata."
+  },
+  "instructions": [
+    {
+      "name": "close_buffer",
+      "discriminator": [
+        46,
+        114,
+        179,
+        58,
+        57,
+        45,
+        194,
+        172
+      ],
+      "accounts": [
+        {
+          "name": "buffer",
+          "writable": true
+        },
+        {
+          "name": "authority",
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "create_buffer",
+      "discriminator": [
+        175,
+        76,
+        101,
+        74,
+        224,
+        249,
+        104,
+        170
+      ],
+      "accounts": [
+        {
+          "name": "buffer",
+          "writable": true
+        },
+        {
+          "name": "authority",
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "initialize",
+      "discriminator": [
+        175,
+        175,
+        109,
+        31,
+        13,
+        152,
+        155,
+        237
+      ],
+      "accounts": [
+        {
+          "name": "idl",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "arg",
+                "path": "seed"
+              },
+              {
+                "kind": "account",
+                "path": "program_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "signer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "program_id"
+        },
+        {
+          "name": "program_data"
+        }
+      ],
+      "args": [
+        {
+          "name": "_seed",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "resize",
+      "discriminator": [
+        74,
+        27,
+        74,
+        155,
+        56,
+        134,
+        175,
+        125
+      ],
+      "accounts": [
+        {
+          "name": "idl",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "arg",
+                "path": "seed"
+              },
+              {
+                "kind": "account",
+                "path": "program_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "signer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "program_id"
+        }
+      ],
+      "args": [
+        {
+          "name": "_len",
+          "type": "u16"
+        },
+        {
+          "name": "_seed",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "set_authority",
+      "discriminator": [
+        133,
+        250,
+        37,
+        21,
+        110,
+        163,
+        26,
+        121
+      ],
+      "accounts": [
+        {
+          "name": "idl",
+          "writable": true
+        },
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "idl"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "new_authority",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "set_buffer",
+      "discriminator": [
+        13,
+        212,
+        241,
+        0,
+        78,
+        93,
+        17,
+        51
+      ],
+      "accounts": [
+        {
+          "name": "buffer",
+          "writable": true
+        },
+        {
+          "name": "idl",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "arg",
+                "path": "seed"
+              },
+              {
+                "kind": "account",
+                "path": "program_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "idl"
+          ]
+        },
+        {
+          "name": "program_id"
+        }
+      ],
+      "args": [
+        {
+          "name": "_seed",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "write_buffer",
+      "discriminator": [
+        164,
+        194,
+        69,
+        154,
+        75,
+        169,
+        228,
+        85
+      ],
+      "accounts": [
+        {
+          "name": "buffer",
+          "writable": true
+        },
+        {
+          "name": "signer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "idl_data",
+          "type": "bytes"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "IdlAccount",
+      "discriminator": [
+        140,
+        36,
+        166,
+        2,
+        103,
+        197,
+        33,
+        164
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "WrongAuthority",
+      "msg": "Only the program upgrade authority can initialize the IDL account"
+    },
+    {
+      "code": 6001,
+      "name": "NotExecutable",
+      "msg": "The program account is not executable"
+    },
+    {
+      "code": 6002,
+      "name": "NotAProgram",
+      "msg": "The program account is not a program. Not owned by the BPF loader"
+    },
+    {
+      "code": 6003,
+      "name": "ShouldBeProgramAccount",
+      "msg": "The program account should not be a program data account"
+    }
+  ],
+  "types": [
+    {
+      "name": "IdlAccount",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "data_len",
+            "type": "u32"
+          }
+        ]
+      }
+    }
+  ]
+}

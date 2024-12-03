@@ -40,7 +40,7 @@ import {
   type WritableAccount,
   type WritableSignerAccount,
 } from '@solana/web3.js';
-import { UPLOAD_IDL_ANCHOR_PROGRAM_ADDRESS } from '../programs';
+import { METADATA_PROGRAM_PROGRAM_ADDRESS } from '../programs';
 import {
   expectAddress,
   expectSome,
@@ -57,7 +57,7 @@ export function getResizeDiscriminatorBytes() {
 }
 
 export type ResizeInstruction<
-  TProgram extends string = typeof UPLOAD_IDL_ANCHOR_PROGRAM_ADDRESS,
+  TProgram extends string = typeof METADATA_PROGRAM_PROGRAM_ADDRESS,
   TAccountIdl extends string | IAccountMeta<string> = string,
   TAccountSigner extends string | IAccountMeta<string> = string,
   TAccountSystemProgram extends
@@ -65,7 +65,7 @@ export type ResizeInstruction<
     | IAccountMeta<string> = '11111111111111111111111111111111',
   TAccountProgramId extends
     | string
-    | IAccountMeta<string> = 'idLB41CuMPpWZmQGGxpsxbyGDWWzono4JnFLJxQakrE',
+    | IAccountMeta<string> = 'pmetaypqG6SiB47xMigYVMAkuHDWeSDXcv3zzDrJJvA',
   TRemainingAccounts extends readonly IAccountMeta<string>[] = [],
 > = IInstruction<TProgram> &
   IInstructionWithData<Uint8Array> &
@@ -142,7 +142,7 @@ export async function getResizeInstructionAsync<
   TAccountSigner extends string,
   TAccountSystemProgram extends string,
   TAccountProgramId extends string,
-  TProgramAddress extends Address = typeof UPLOAD_IDL_ANCHOR_PROGRAM_ADDRESS,
+  TProgramAddress extends Address = typeof METADATA_PROGRAM_PROGRAM_ADDRESS,
 >(
   input: ResizeAsyncInput<
     TAccountIdl,
@@ -162,7 +162,7 @@ export async function getResizeInstructionAsync<
 > {
   // Program address.
   const programAddress =
-    config?.programAddress ?? UPLOAD_IDL_ANCHOR_PROGRAM_ADDRESS;
+    config?.programAddress ?? METADATA_PROGRAM_PROGRAM_ADDRESS;
 
   // Original accounts.
   const originalAccounts = {
@@ -242,7 +242,7 @@ export function getResizeInstruction<
   TAccountSigner extends string,
   TAccountSystemProgram extends string,
   TAccountProgramId extends string,
-  TProgramAddress extends Address = typeof UPLOAD_IDL_ANCHOR_PROGRAM_ADDRESS,
+  TProgramAddress extends Address = typeof METADATA_PROGRAM_PROGRAM_ADDRESS,
 >(
   input: ResizeInput<
     TAccountIdl,
@@ -260,7 +260,7 @@ export function getResizeInstruction<
 > {
   // Program address.
   const programAddress =
-    config?.programAddress ?? UPLOAD_IDL_ANCHOR_PROGRAM_ADDRESS;
+    config?.programAddress ?? METADATA_PROGRAM_PROGRAM_ADDRESS;
 
   // Original accounts.
   const originalAccounts = {
@@ -311,7 +311,7 @@ export function getResizeInstruction<
 }
 
 export type ParsedResizeInstruction<
-  TProgram extends string = typeof UPLOAD_IDL_ANCHOR_PROGRAM_ADDRESS,
+  TProgram extends string = typeof METADATA_PROGRAM_PROGRAM_ADDRESS,
   TAccountMetas extends readonly IAccountMeta[] = readonly IAccountMeta[],
 > = {
   programAddress: Address<TProgram>;

@@ -1,7 +1,7 @@
 import { Keypair, PublicKey } from "@solana/web3.js";
 import fs from "fs";
-import { UploadIdlAnchor } from "./types/upload_idl_anchor";
-import IDL from "./upload_idl_anchor.json";
+import { MetadataProgram } from "./types/metadata_program";
+import IDL from "./metadata_program.json";
 import * as anchor from "@coral-xyz/anchor";
 import { inflate, deflate } from "pako";
 
@@ -14,22 +14,16 @@ const DATA_LENGTH_OFFSET = 40;
 const BPF_LOADER_2_PROGRAM_ID = new PublicKey(
   "BPFLoaderUpgradeab1e11111111111111111111111"
 );
-const IDL_PROGRAM_ID = new PublicKey(
-  "idLB41CuMPpWZmQGGxpsxbyGDWWzono4JnFLJxQakrE"
+const METADATA_PROGRAM_ID = new PublicKey(
+  "pmetaypqG6SiB47xMigYVMAkuHDWeSDXcv3zzDrJJvA"
 );
 const IDL_SEED = "idl";
 const PROGRAM_METADATA_SEED = "metadata";
 
-interface TransactionConfig {
-  keypair: Keypair;
-  rpcUrl: string;
-  priorityFeesPerCU: number;
-}
-
 interface ConnectionConfig {
   connection: anchor.web3.Connection;
   provider: anchor.AnchorProvider;
-  program: anchor.Program<UploadIdlAnchor>;
+  program: anchor.Program<MetadataProgram>;
 }
 
 interface ProgramMetaData {
@@ -181,7 +175,7 @@ async function initializeMetaDataBySeed(
     {}
   );
   anchor.setProvider(provider);
-  const program = new anchor.Program(IDL as UploadIdlAnchor, provider);
+  const program = new anchor.Program(IDL as MetadataProgram, provider);
 
   const idlAccountInfo = await connection.getAccountInfo(idlPdaAddress);
   if (!idlAccountInfo) {
@@ -240,7 +234,7 @@ async function setAuthority(
     {}
   );
   anchor.setProvider(provider);
-  const program = new anchor.Program(IDL as UploadIdlAnchor, provider);
+  const program = new anchor.Program(IDL as MetadataProgram, provider);
 
   const initializePdaInstruction = await program.methods
     .setAuthority(newAuthority)
@@ -284,7 +278,7 @@ async function createBuffer(
     {}
   );
   anchor.setProvider(provider);
-  const program = new anchor.Program(IDL as UploadIdlAnchor, provider);
+  const program = new anchor.Program(IDL as MetadataProgram, provider);
 
   const idlBytes = deflate(new Uint8Array(buffer)); // Compress the IDL JSON
   const bufferSize = idlBytes.length + METADATA_OFFSET; // 44 bytes for discriminator, authority, and data_len
@@ -346,7 +340,7 @@ async function writeBuffer(
     {}
   );
   anchor.setProvider(provider);
-  const program = new anchor.Program(IDL as UploadIdlAnchor, provider);
+  const program = new anchor.Program(IDL as MetadataProgram, provider);
 
   const idlBytes = deflate(new Uint8Array(buffer)); // Compress the buffer
 
@@ -404,7 +398,7 @@ async function setBuffer(
     {}
   );
   anchor.setProvider(provider);
-  const program = new anchor.Program(IDL as UploadIdlAnchor, provider);
+  const program = new anchor.Program(IDL as MetadataProgram, provider);
 
   const idlAccount = getCanonicalPdaAddressBySeed(programId, seed);
 
@@ -509,7 +503,7 @@ function getCanonicalPdaAddressBySeed(
 ): PublicKey {
   const [idlAccount] = anchor.web3.PublicKey.findProgramAddressSync(
     [Buffer.from(seed, "utf8"), programId.toBuffer()],
-    new PublicKey(IDL_PROGRAM_ID)
+    new PublicKey(METADATA_PROGRAM_ID)
   );
   return idlAccount;
 }
@@ -561,7 +555,7 @@ function setupConnection(rpcUrl: string, keypair: Keypair): ConnectionConfig {
     {}
   );
   anchor.setProvider(provider);
-  const program = new anchor.Program(IDL as UploadIdlAnchor, provider);
+  const program = new anchor.Program(IDL as MetadataProgram, provider);
 
   return { connection, provider, program };
 }

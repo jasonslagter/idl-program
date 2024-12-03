@@ -2,10 +2,10 @@ use anchor_lang::idl::ERASED_AUTHORITY;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::bpf_loader_upgradeable;
 
-declare_id!("idLB41CuMPpWZmQGGxpsxbyGDWWzono4JnFLJxQakrE");
+declare_id!("pmetaypqG6SiB47xMigYVMAkuHDWeSDXcv3zzDrJJvA");
 
 #[program]
-pub mod upload_idl_anchor {
+pub mod metadata_program {
 
     use super::*;
 

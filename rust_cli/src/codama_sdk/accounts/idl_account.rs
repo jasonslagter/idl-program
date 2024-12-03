@@ -54,7 +54,7 @@ impl<'a> TryFrom<&solana_program::account_info::AccountInfo<'a>> for IdlAccount 
   #[cfg(feature = "anchor")]
   impl anchor_lang::Owner for IdlAccount {
       fn owner() -> Pubkey {
-        crate::UPLOAD_IDL_ANCHOR_ID
+        crate::METADATA_PROGRAM_ID
       }
   }
 

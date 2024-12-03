@@ -34,7 +34,7 @@ import {
   type WritableAccount,
   type WritableSignerAccount,
 } from '@solana/web3.js';
-import { UPLOAD_IDL_ANCHOR_PROGRAM_ADDRESS } from '../programs';
+import { METADATA_PROGRAM_PROGRAM_ADDRESS } from '../programs';
 import { getAccountMetaFactory, type ResolvedAccount } from '../shared';
 
 export const WRITE_BUFFER_DISCRIMINATOR = new Uint8Array([
@@ -48,7 +48,7 @@ export function getWriteBufferDiscriminatorBytes() {
 }
 
 export type WriteBufferInstruction<
-  TProgram extends string = typeof UPLOAD_IDL_ANCHOR_PROGRAM_ADDRESS,
+  TProgram extends string = typeof METADATA_PROGRAM_PROGRAM_ADDRESS,
   TAccountBuffer extends string | IAccountMeta<string> = string,
   TAccountSigner extends string | IAccountMeta<string> = string,
   TAccountSystemProgram extends
@@ -122,7 +122,7 @@ export function getWriteBufferInstruction<
   TAccountBuffer extends string,
   TAccountSigner extends string,
   TAccountSystemProgram extends string,
-  TProgramAddress extends Address = typeof UPLOAD_IDL_ANCHOR_PROGRAM_ADDRESS,
+  TProgramAddress extends Address = typeof METADATA_PROGRAM_PROGRAM_ADDRESS,
 >(
   input: WriteBufferInput<
     TAccountBuffer,
@@ -138,7 +138,7 @@ export function getWriteBufferInstruction<
 > {
   // Program address.
   const programAddress =
-    config?.programAddress ?? UPLOAD_IDL_ANCHOR_PROGRAM_ADDRESS;
+    config?.programAddress ?? METADATA_PROGRAM_PROGRAM_ADDRESS;
 
   // Original accounts.
   const originalAccounts = {
@@ -182,7 +182,7 @@ export function getWriteBufferInstruction<
 }
 
 export type ParsedWriteBufferInstruction<
-  TProgram extends string = typeof UPLOAD_IDL_ANCHOR_PROGRAM_ADDRESS,
+  TProgram extends string = typeof METADATA_PROGRAM_PROGRAM_ADDRESS,
   TAccountMetas extends readonly IAccountMeta[] = readonly IAccountMeta[],
 > = {
   programAddress: Address<TProgram>;

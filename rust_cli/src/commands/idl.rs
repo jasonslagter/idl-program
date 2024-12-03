@@ -22,7 +22,7 @@ use crate::codama_sdk::{
         set_buffer::{SetBuffer, SetBufferInstructionArgs},
         close_buffer::CloseBuffer,
     },
-    programs::UPLOAD_IDL_ANCHOR_ID,
+    programs::METADATA_PROGRAM_ID,
 };
 use reqwest::blocking::Client;
 use flate2::read::GzDecoder;
@@ -111,6 +111,7 @@ fn upload_data_from_bytes(
         .map_err(|e| anyhow!("Invalid program ID: {}", e))?;
 
     println!("Signer: {}", signer.pubkey());
+    println!("&program_pubkey: {}", &program_pubkey);
 
     // Get account address
     let metadata_address = get_metadata_address(seed, &program_pubkey);
@@ -211,7 +212,7 @@ fn create_buffer(
         &buffer_keypair.pubkey(),
         rent,
         data_len as u64,
-        &UPLOAD_IDL_ANCHOR_ID,
+        &METADATA_PROGRAM_ID,
     );
     let create_buffer = CreateBufferBuilder::new()
         .buffer(buffer_keypair.pubkey())
@@ -465,7 +466,7 @@ fn get_account_with_retry(
 fn get_metadata_address(seed: &str, program_pubkey: &Pubkey) -> Pubkey {
     let (metadata_address, _) = Pubkey::find_program_address(
         &[seed.as_bytes(), program_pubkey.as_ref()],
-        &UPLOAD_IDL_ANCHOR_ID,
+        &METADATA_PROGRAM_ID,
     );
     metadata_address
 }
