@@ -114,11 +114,6 @@ metadataCommand
   .option("-u, --url <string>", "RPC URL", "http://127.0.0.1:8899")
   .action(async (file, programId, options) => {
     try {
-      console.log("options.keypair", options.keypair);
-      const keypairString = fs.readFileSync(options.keypair, "utf-8");
-      const keypairData = new Uint8Array(JSON.parse(keypairString));
-      console.log("Keypair data", keypairData);
-
       const keypair = options.keypair
         ? Keypair.fromSecretKey(
             new Uint8Array(

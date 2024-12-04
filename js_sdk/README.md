@@ -117,6 +117,12 @@ program-metadata metadata upload ./metadata.json GrAkz4CQ4zKm9KhZ9Q7PkCmqDP7JuSG
   -k ./my-keypair.json \
   -u https://api.devnet.solana.com
 
+program-metadata idl upload tests/testidl.json 6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A \
+  -k tests/wallet2.json -u https://api.devnet.solana.com
+
+program-metadata metadata upload tests/metadata.json 6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A \
+  -k tests/wallet2.json -u https://api.devnet.solana.com
+
 # Download IDL to custom file
 program-metadata idl download GrAkz4CQ4zKm9KhZ9Q7PkCmqDP7JuSGbpwGY8dxKt6Kj ./my-idl.json
 
