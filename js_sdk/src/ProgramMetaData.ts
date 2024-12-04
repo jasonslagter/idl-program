@@ -497,6 +497,10 @@ function getCanonicalIdlAddress(programId: PublicKey): PublicKey {
   return getCanonicalPdaAddressBySeed(programId, IDL_SEED);
 }
 
+function getCanonicalMetadataIdlAddress(programId: PublicKey): PublicKey {
+  return getCanonicalPdaAddressBySeed(programId, PROGRAM_METADATA_SEED);
+}
+
 function getCanonicalPdaAddressBySeed(
   programId: PublicKey,
   seed: string
@@ -543,8 +547,34 @@ async function fetchIDL(
 
   // Convert Uint8Array to string
   const idlString = new TextDecoder("utf-8").decode(decompressedData);
-
-  return idlString;
+  // Check if the idlString is a URL
+  try {
+    const url = new URL(idlString);
+    // If it's a valid URL, fetch the IDL from it
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch IDL from URL: ${response.statusText}`);
+    }
+    const idlFromUrl = await response.text();
+    // Validate that the fetched IDL is valid JSON
+    try {
+      JSON.parse(idlFromUrl);
+    } catch (error) {
+      throw new Error(`Invalid IDL JSON format from URL: ${error}`);
+    }
+    return idlFromUrl;
+  } catch (error) {
+    if (error instanceof TypeError && error.message.includes("Invalid URL")) {
+      // If not a URL, validate the original IDL string as JSON
+      try {
+        JSON.parse(idlString);
+      } catch (error) {
+        throw new Error(`Invalid IDL JSON format: ${error}`);
+      }
+      return idlString;
+    }
+    throw error;
+  }
 }
 
 function setupConnection(rpcUrl: string, keypair: Keypair): ConnectionConfig {
@@ -678,8 +708,21 @@ async function fetchProgramMetadata(
   const metadataString = new TextDecoder("utf-8").decode(decompressedData);
 
   try {
+    console.log("Metadata string", metadataString);
+
     return JSON.parse(metadataString) as ProgramMetaData;
   } catch (error) {
+    // If metadata can't be parsed, try treating it as a URL and fetch from there
+    try {
+      const response = await fetch(metadataString.trim());
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const jsonData = await response.json();
+      return jsonData as ProgramMetaData;
+    } catch (fetchError) {
+      console.error("Failed to fetch metadata from URL:", fetchError);
+    }
     throw new IDLError("Failed to parse program metadata");
   }
 }
@@ -761,8 +804,7 @@ async function uploadProgramMetadataByUrl(
     }
 
     // Convert metadata to buffer
-    const metadataUrlBuffer = Buffer.from(url, "utf8");
-
+    const metadataUrlBuffer = Buffer.from(url.toString(), "utf8");
     await uploadGenericDataBySeed(
       metadataUrlBuffer,
       programId,
@@ -777,9 +819,7 @@ async function uploadProgramMetadataByUrl(
     }
     // Type guard for Error objects
     if (error instanceof Error) {
-      throw new IDLError(
-        `Failed to process metadata from URL: ${error.message}`
-      );
+      throw new IDLError(`Failed to process metadata from URL: ${error}`);
     }
     // Fallback for unknown error types
     throw new IDLError("Failed to process metadata from URL: Unknown error");
@@ -794,6 +834,7 @@ export {
   setAuthority,
   fetchIDL,
   getCanonicalIdlAddress,
+  getCanonicalMetadataIdlAddress,
   getCanonicalPdaAddressBySeed,
   uploadGenericDataBySeed,
   setupConnection,

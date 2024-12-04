@@ -5,9 +5,12 @@ import {
   fetchIDL,
   fetchProgramMetadata,
   getCanonicalIdlAddress,
+  getCanonicalMetadataIdlAddress,
+  setAuthority,
   uploadIdlByJsonPath,
   uploadIdlUrl,
   uploadProgramMetadataByJsonPath,
+  uploadProgramMetadataByUrl,
   // } from "my-idl-test/dist/ProgramMetaData";
 } from "../js_sdk/src/ProgramMetaData";
 import { assert } from "chai";
@@ -43,7 +46,7 @@ describe("upload-idl-anchor", () => {
     await connection.confirmTransaction(airdropSig, "confirmed");
   });
 
-  it.only("Write IDL Url", async () => {
+  it("Write IDL Url", async () => {
     const url = "http://example.com";
 
     await uploadIdlUrl(url, TEST_IDL_PROGRAM, keypair, rpcUrl, 0);
@@ -70,7 +73,7 @@ describe("upload-idl-anchor", () => {
     );
   });
 
-  it.only("Write IDL json !", async () => {
+  it("Write IDL json !", async () => {
     await uploadIdlByJsonPath(IDL_PATH, TEST_IDL_PROGRAM, keypair, rpcUrl, 0);
 
     const idlAccount = getCanonicalIdlAddress(TEST_IDL_PROGRAM);
@@ -98,7 +101,7 @@ describe("upload-idl-anchor", () => {
     console.log("Parsed IDL JSON:", idlJson);
   });
 
-  it.only("Write program metadata json", async () => {
+  it("Write program metadata json", async () => {
     const LogoUrl =
       "https://upload.wikimedia.org/wikipedia/en/b/b9/Solana_logo.png";
 
@@ -121,7 +124,7 @@ describe("upload-idl-anchor", () => {
     );
   });
 
-  it.only("Test change and remove authority", async () => {
+  it("Test change and remove authority", async () => {
     const LogoUrl =
       "https://upload.wikimedia.org/wikipedia/en/b/b9/Solana_logo.png";
 
@@ -133,10 +136,28 @@ describe("upload-idl-anchor", () => {
       0
     );
 
+    const metadataAccount = getCanonicalMetadataIdlAddress(TEST_IDL_PROGRAM);
+
+    // Remove authority
+    await setAuthority(metadataAccount, PublicKey.default, keypair, rpcUrl, 0);
+
+    try {
+      // Try write something else in the PDA
+      await uploadProgramMetadataByUrl(
+        "https://raw.githubusercontent.com/solana-developers/idl-program/refs/heads/main/tests/metadata.json",
+        TEST_IDL_PROGRAM,
+        keypair,
+        rpcUrl,
+        0
+      );
+    } catch (error) {
+      console.log("Expected Error because authority was removed", error);
+    }
+
     const metadata = await fetchProgramMetadata(TEST_IDL_PROGRAM, rpcUrl);
 
     console.log("Metadata", metadata);
-
+    // This will still be the old logo because the authority was removed and the second upload was not confirmed
     assert.equal(
       metadata.logo,
       LogoUrl,
