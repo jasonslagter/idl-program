@@ -1,6 +1,5 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
-import { UploadIdlAnchor } from "../target/types/upload_idl_anchor";
 import {
   fetchIDL,
   fetchProgramMetadata,
@@ -15,6 +14,7 @@ import {
 import { assert } from "chai";
 import { inflate } from "pako";
 import { Keypair, PublicKey } from "@solana/web3.js";
+import { MetadataProgram } from "../target/types/metadata_program";
 
 const IDL_PATH = "./tests/testidl.json";
 const META_DATA_JSON = "./tests/metadata.json";
@@ -22,7 +22,7 @@ const META_DATA_JSON = "./tests/metadata.json";
 const TEST_IDL_PROGRAM = new PublicKey(
   "6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A"
 );
-const program = anchor.workspace.UploadIdlAnchor as Program<UploadIdlAnchor>;
+const program = anchor.workspace.MetadataProgram as Program<MetadataProgram>;
 
 const rpcUrl = "http://localhost:8899";
 const connection = new anchor.web3.Connection(rpcUrl, "confirmed");

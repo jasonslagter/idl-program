@@ -14,6 +14,10 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 
+const LOCALHOST_URL = "http://127.0.0.1:8899";
+const DEVNET_URL = "https://api.devnet.solana.com";
+const MAINNET_URL = "https://api.mainnet-beta.solana.com";
+
 const program = new Command();
 
 program
@@ -30,10 +34,23 @@ idlCommand
   .command("upload <file> <program-id>")
   .description("Upload IDL from a file")
   .option("-k, --keypair <path>", "Path to keypair file")
-  .option("-p, --priority-fees <number>", "Priority fees per compute unit", "0")
-  .option("-u, --url <string>", "RPC URL", "http://127.0.0.1:8899")
+  .option(
+    "-p, --priority-fees <number>",
+    "Priority fees per compute unit",
+    "100000"
+  )
+  .option("-u, --url <string>", "Custom RPC URL")
+  .option("-ul, --url-local", "Use localhost RPC (default)")
+  .option("-ud, --url-devnet", "Use Devnet RPC")
+  .option("-um, --url-mainnet", "Use Mainnet RPC")
+  .option(
+    "-a, --add-signer-seed",
+    "Add signer's public key as additional seed",
+    false
+  )
   .action(async (file, programId, options) => {
     try {
+      const rpcUrl = getRpcUrl(options);
       const keypair = options.keypair
         ? Keypair.fromSecretKey(
             new Uint8Array(
@@ -46,8 +63,9 @@ idlCommand
         file,
         new PublicKey(programId),
         keypair,
-        options.url,
-        parseInt(options.priorityFees)
+        rpcUrl,
+        parseInt(options.priorityFees),
+        options.addSignerSeed
       );
       console.log("IDL uploaded successfully!");
     } catch (error) {
@@ -60,10 +78,19 @@ idlCommand
   .command("upload-url <url> <program-id>")
   .description("Upload IDL from URL")
   .option("-k, --keypair <path>", "Path to keypair file")
-  .option("-p, --priority-fees <number>", "Priority fees per compute unit", "0")
-  .option("-u, --url <string>", "RPC URL", "http://127.0.0.1:8899")
+  .option("-p, --priority-fees <number>", "Priority fees per compute unit", "100000")
+  .option("-u, --url <string>", "Custom RPC URL")
+  .option("-ul, --url-local", "Use localhost RPC (default)")
+  .option("-ud, --url-devnet", "Use Devnet RPC")
+  .option("-um, --url-mainnet", "Use Mainnet RPC")
+  .option(
+    "-a, --add-signer-seed",
+    "Add signer's public key as additional seed",
+    false
+  )
   .action(async (url, programId, options) => {
     try {
+      const rpcUrl = getRpcUrl(options);
       const keypair = options.keypair
         ? Keypair.fromSecretKey(
             new Uint8Array(
@@ -76,8 +103,9 @@ idlCommand
         url,
         new PublicKey(programId),
         keypair,
-        options.url,
-        parseInt(options.priorityFees)
+        rpcUrl,
+        parseInt(options.priorityFees),
+        options.addSignerSeed
       );
       console.log("IDL URL uploaded successfully!");
     } catch (error) {
@@ -89,10 +117,25 @@ idlCommand
 idlCommand
   .command("download <program-id> [output]")
   .description("Download IDL to file")
-  .option("-u, --url <string>", "RPC URL", "http://127.0.0.1:8899")
+  .option("-u, --url <string>", "Custom RPC URL")
+  .option("-ul, --url-local", "Use localhost RPC (default)")
+  .option("-ud, --url-devnet", "Use Devnet RPC")
+  .option("-um, --url-mainnet", "Use Mainnet RPC")
+  .option(
+    "-s, --signer <pubkey>",
+    "Additional signer public key to find non-associated PDAs"
+  )
   .action(async (programId, output = "idl.json", options) => {
     try {
-      const idl = await fetchIDL(new PublicKey(programId), options.url);
+      const rpcUrl = getRpcUrl(options);
+      const signerPubkey = options.signer
+        ? new PublicKey(options.signer)
+        : undefined;
+      const idl = await fetchIDL(
+        new PublicKey(programId),
+        rpcUrl,
+        signerPubkey
+      );
       fs.writeFileSync(output, idl);
       console.log(`IDL downloaded to ${output}`);
     } catch (error) {
@@ -110,10 +153,19 @@ metadataCommand
   .command("upload <file> <program-id>")
   .description("Upload metadata from a file")
   .option("-k, --keypair <path>", "Path to keypair file")
-  .option("-p, --priority-fees <number>", "Priority fees per compute unit", "0")
-  .option("-u, --url <string>", "RPC URL", "http://127.0.0.1:8899")
+  .option("-p, --priority-fees <number>", "Priority fees per compute unit", "100000")
+  .option("-u, --url <string>", "Custom RPC URL")
+  .option("-ul, --url-local", "Use localhost RPC (default)")
+  .option("-ud, --url-devnet", "Use Devnet RPC")
+  .option("-um, --url-mainnet", "Use Mainnet RPC")
+  .option(
+    "-a, --add-signer-seed",
+    "Add signer's public key as additional seed",
+    false
+  )
   .action(async (file, programId, options) => {
     try {
+      const rpcUrl = getRpcUrl(options);
       const keypair = options.keypair
         ? Keypair.fromSecretKey(
             new Uint8Array(
@@ -126,8 +178,9 @@ metadataCommand
         file,
         new PublicKey(programId),
         keypair,
-        options.url,
-        parseInt(options.priorityFees)
+        rpcUrl,
+        parseInt(options.priorityFees),
+        options.addSignerSeed
       );
       console.log("Metadata uploaded successfully!");
     } catch (error) {
@@ -140,10 +193,19 @@ metadataCommand
   .command("upload-url <url> <program-id>")
   .description("Upload metadata from URL")
   .option("-k, --keypair <path>", "Path to keypair file")
-  .option("-p, --priority-fees <number>", "Priority fees per compute unit", "0")
-  .option("-u, --url <string>", "RPC URL", "http://127.0.0.1:8899")
+  .option("-p, --priority-fees <number>", "Priority fees per compute unit", "100000")
+  .option("-u, --url <string>", "Custom RPC URL")
+  .option("-ul, --url-local", "Use localhost RPC (default)")
+  .option("-ud, --url-devnet", "Use Devnet RPC")
+  .option("-um, --url-mainnet", "Use Mainnet RPC")
+  .option(
+    "-a, --add-signer-seed",
+    "Add signer's public key as additional seed",
+    false
+  )
   .action(async (url, programId, options) => {
     try {
+      const rpcUrl = getRpcUrl(options);
       const keypair = options.keypair
         ? Keypair.fromSecretKey(
             new Uint8Array(
@@ -156,8 +218,9 @@ metadataCommand
         url,
         new PublicKey(programId),
         keypair,
-        options.url,
-        parseInt(options.priorityFees)
+        rpcUrl,
+        parseInt(options.priorityFees),
+        options.addSignerSeed
       );
       console.log("Metadata URL uploaded successfully!");
     } catch (error) {
@@ -169,12 +232,24 @@ metadataCommand
 metadataCommand
   .command("download <program-id> [output]")
   .description("Download metadata to file")
-  .option("-u, --url <string>", "RPC URL", "http://127.0.0.1:8899")
+  .option("-u, --url <string>", "Custom RPC URL")
+  .option("-ul, --url-local", "Use localhost RPC (default)")
+  .option("-ud, --url-devnet", "Use Devnet RPC")
+  .option("-um, --url-mainnet", "Use Mainnet RPC")
+  .option(
+    "-s, --signer <pubkey>",
+    "Additional signer public key to find non-associated PDAs"
+  )
   .action(async (programId, output = "metadata.json", options) => {
     try {
+      const rpcUrl = getRpcUrl(options);
+      const signerPubkey = options.signer
+        ? new PublicKey(options.signer)
+        : undefined;
       const metadata = await fetchProgramMetadata(
         new PublicKey(programId),
-        options.url
+        rpcUrl,
+        signerPubkey
       );
       fs.writeFileSync(output, JSON.stringify(metadata, null, 2));
       console.log(`Metadata downloaded to ${output}`);
@@ -184,9 +259,8 @@ metadataCommand
     }
   });
 
-// Helper function to load default keypair (you'll need to implement this)
+// Helper function to load default keypair
 function loadDefaultKeypair(): Keypair {
-  throw new Error("Default keypair loading not implemented");
   try {
     // Get default Solana keypair path
     const CONFIG_FILE_PATH = path.join(
@@ -214,6 +288,14 @@ function loadDefaultKeypair(): Keypair {
     }
     throw new Error("Failed to load default keypair");
   }
+}
+
+// Helper function to determine RPC URL
+function getRpcUrl(options: any): string {
+  if (options.url) return options.url;
+  if (options.urlDevnet) return DEVNET_URL;
+  if (options.urlMainnet) return MAINNET_URL;
+  return LOCALHOST_URL; // default
 }
 
 program.parse();

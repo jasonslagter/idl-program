@@ -11,9 +11,6 @@ const MAX_RESIZE_STEP = 10240;
 const CONFIRMATION_COMMITMENT: anchor.web3.Commitment = "confirmed";
 const DATA_LENGTH_OFFSET = 40;
 
-const UPGRADABLE_LOADER_PROGRAM_ID = new PublicKey(
-  "BPFLoaderUpgradeab1e11111111111111111111111"
-);
 const METADATA_PROGRAM_ID = new PublicKey(
   "pmetaypqG6SiB47xMigYVMAkuHDWeSDXcv3zzDrJJvA"
 );

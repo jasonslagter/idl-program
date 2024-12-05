@@ -1,7 +1,7 @@
 {
   "name": "solana-program-metadata",
   "description": "Save Solana program metadata and IDLs on chain",
-  "version": "0.0.6",
+  "version": "0.0.10",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/solana-developers/idl-program.git"
@@ -13,7 +13,16 @@
       "./js_sdk/dist"
     ]
   },
-  "keywords": [],
+  "keywords": [
+    "solana",
+    "blockchain",
+    "metadata",
+    "idl",
+    "program",
+    "anchor",
+    "registry",
+    "documentation"
+  ],
   "author": "Jonas",
   "license": "MIT",
   "bugs": {
