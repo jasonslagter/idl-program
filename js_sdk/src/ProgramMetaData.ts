@@ -11,7 +11,7 @@ const MAX_RESIZE_STEP = 10240;
 const CONFIRMATION_COMMITMENT: anchor.web3.Commitment = "confirmed";
 const DATA_LENGTH_OFFSET = 40;
 
-const BPF_LOADER_2_PROGRAM_ID = new PublicKey(
+const UPGRADABLE_LOADER_PROGRAM_ID = new PublicKey(
   "BPFLoaderUpgradeab1e11111111111111111111111"
 );
 const METADATA_PROGRAM_ID = new PublicKey(
@@ -60,6 +60,7 @@ class IDLError extends Error {
  * @param {Keypair} keypair - Keypair for transaction signing
  * @param {string} rpcUrl - RPC URL for the connection
  * @param {number} priorityFeesPerCU - Priority fees per compute unit
+ * @param {boolean} addSignerSeed - Whether to add signer's public key as additional seed (optional, defaults to false)
  * @throws {IDLError} If file not found or upload fails
  */
 async function uploadIdlByJsonPath(
@@ -67,7 +68,8 @@ async function uploadIdlByJsonPath(
   programId: PublicKey,
   keypair: Keypair,
   rpcUrl: string,
-  priorityFeesPerCU: number
+  priorityFeesPerCU: number,
+  addSignerSeed: boolean = false
 ) {
   if (!fs.existsSync(idlPath)) {
     throw new IDLError(`File not found: ${idlPath}`);
@@ -82,16 +84,27 @@ async function uploadIdlByJsonPath(
     keypair,
     rpcUrl,
     priorityFeesPerCU,
-    IDL_SEED
+    IDL_SEED,
+    addSignerSeed
   );
 }
 
+/**
+ * Uploads an IDL URL
+ * @param {string} url - URL to upload
+ * @param {PublicKey} programId - Program ID
+ * @param {Keypair} keypair - Keypair for transaction signing
+ * @param {string} rpcUrl - RPC URL for the connection
+ * @param {number} priorityFeesPerCU - Priority fees per compute unit
+ * @param {boolean} addSignerSeed - Whether to add signer's public key as additional seed (optional, defaults to false)
+ */
 async function uploadIdlUrl(
   url: string,
   programId: PublicKey,
   keypair: Keypair,
   rpcUrl: string,
-  priorityFeesPerCU: number
+  priorityFeesPerCU: number,
+  addSignerSeed: boolean = false
 ) {
   let buffer: Buffer = Buffer.from(url, "utf8");
   await uploadGenericDataBySeed(
@@ -100,17 +113,29 @@ async function uploadIdlUrl(
     keypair,
     rpcUrl,
     priorityFeesPerCU,
-    IDL_SEED
+    IDL_SEED,
+    addSignerSeed
   );
 }
 
+/**
+ * Uploads generic data using a specified seed
+ * @param {Buffer} buffer - Data to upload
+ * @param {PublicKey} programId - Program ID
+ * @param {Keypair} keypair - Keypair for transaction signing
+ * @param {string} rpcUrl - RPC URL for the connection
+ * @param {number} priorityFeesPerCU - Priority fees per compute unit
+ * @param {string} seed - Seed string for PDA derivation
+ * @param {boolean} addSignerSeed - Whether to add signer's public key as additional seed (optional, defaults to false)
+ */
 async function uploadGenericDataBySeed(
   buffer: Buffer,
   programId: PublicKey,
   keypair: Keypair,
   rpcUrl: string,
   priorityFeesPerCU: number,
-  seed: string
+  seed: string,
+  addSignerSeed: boolean = false
 ) {
   const connection = new anchor.web3.Connection(rpcUrl, "confirmed");
   const provider = new anchor.AnchorProvider(
@@ -120,7 +145,11 @@ async function uploadGenericDataBySeed(
   );
   anchor.setProvider(provider);
 
-  const idlAccount = getCanonicalPdaAddressBySeed(programId, seed);
+  const idlAccount = getMetadataAddressBySeed(
+    programId,
+    seed,
+    addSignerSeed ? keypair.publicKey : null
+  );
   console.log("Idl pda address", idlAccount.toBase58());
   await initializeMetaDataBySeed(
     idlAccount,
@@ -128,7 +157,8 @@ async function uploadGenericDataBySeed(
     keypair,
     rpcUrl,
     priorityFeesPerCU,
-    seed
+    seed,
+    addSignerSeed
   );
   console.log("Initialized Idl account");
   const bufferAddress = await createBuffer(
@@ -155,7 +185,8 @@ async function uploadGenericDataBySeed(
     keypair,
     rpcUrl,
     priorityFeesPerCU,
-    seed
+    seed,
+    addSignerSeed
   );
   console.log("Buffer set and buffer closed");
 }
@@ -166,7 +197,8 @@ async function initializeMetaDataBySeed(
   keypair: Keypair,
   rpcUrl: string,
   priorityFeesPerCU: number,
-  seed: string
+  seed: string,
+  addSignerSeed: boolean = false
 ) {
   const connection = new anchor.web3.Connection(rpcUrl, "confirmed");
   const provider = new anchor.AnchorProvider(
@@ -181,17 +213,32 @@ async function initializeMetaDataBySeed(
   if (!idlAccountInfo) {
     const [programDataAddress] = await PublicKey.findProgramAddress(
       [programId.toBuffer()],
-      BPF_LOADER_2_PROGRAM_ID
+      UPGRADABLE_LOADER_PROGRAM_ID
     );
 
-    const initializePdaInstruction = await program.methods
-      .initialize(seed)
-      .accountsPartial({
-        idl: idlPdaAddress,
-        programId: programId,
-        programData: programDataAddress,
-      })
-      .instruction();
+    var initializePdaInstruction;
+    console.log("Add signer seed", addSignerSeed);
+    console.log("Signer seed", keypair.publicKey.toBase58());
+    console.log("Program data address", programDataAddress.toBase58());
+    if (addSignerSeed) {  
+      initializePdaInstruction = await program.methods
+        .initializeWithSignerSeed(seed)
+        .accountsPartial({
+          idl: idlPdaAddress,
+          programId: programId,
+          programData: programDataAddress,
+        })
+        .instruction();
+    } else {
+      initializePdaInstruction = await program.methods
+        .initialize(seed)
+        .accountsPartial({
+          idl: idlPdaAddress,
+          programId: programId,
+          programData: programDataAddress,
+        })
+        .instruction();
+    }
 
     const getLatestBlockhash = await connection.getLatestBlockhash();
 
@@ -389,7 +436,8 @@ async function setBuffer(
   keypair: Keypair,
   rpcUrl: string,
   priorityFeesPerCU: number,
-  seed: string
+  seed: string,
+  addSignerSeed: boolean = false
 ) {
   const connection = new anchor.web3.Connection(rpcUrl, "confirmed");
   const provider = new anchor.AnchorProvider(
@@ -400,7 +448,11 @@ async function setBuffer(
   anchor.setProvider(provider);
   const program = new anchor.Program(IDL as MetadataProgram, provider);
 
-  const idlAccount = getCanonicalPdaAddressBySeed(programId, seed);
+  const idlAccount = getMetadataAddressBySeed(
+    programId,
+    seed,
+    addSignerSeed ? keypair.publicKey : null
+  );
 
   const idlAccountAccountInfo = await connection.getAccountInfo(idlAccount);
   if (!idlAccountAccountInfo) {
@@ -467,6 +519,7 @@ async function setBuffer(
   const setBufferInstruction = await program.methods
     .setBuffer(seed)
     .accountsPartial({
+      idl: idlAccount,
       buffer: bufferAddress,
       programId: programId,
     })
@@ -493,20 +546,34 @@ async function setBuffer(
   console.log("Signature set buffer", signature);
 }
 
-function getCanonicalIdlAddress(programId: PublicKey): PublicKey {
-  return getCanonicalPdaAddressBySeed(programId, IDL_SEED);
+function getAssociatedIdlAddress(programId: PublicKey): PublicKey {
+  return getMetadataAddressBySeed(programId, IDL_SEED, null);
 }
 
-function getCanonicalMetadataIdlAddress(programId: PublicKey): PublicKey {
-  return getCanonicalPdaAddressBySeed(programId, PROGRAM_METADATA_SEED);
+function getAssociatedMetadataIdlAddress(programId: PublicKey): PublicKey {
+  return getMetadataAddressBySeed(programId, PROGRAM_METADATA_SEED, null);
 }
 
-function getCanonicalPdaAddressBySeed(
+/**
+ * Gets the associated PDA address for IDL data
+ * @param {PublicKey} programId - Program ID
+ * @param {string} seed - Seed string for PDA derivation
+ * @param {PublicKey} signerSeed - Optional signer public key to use as additional seed
+ * @returns {PublicKey} The derived PDA address
+ */
+function getMetadataAddressBySeed(
   programId: PublicKey,
-  seed: string
+  seed: string,
+  signerSeed?: PublicKey
 ): PublicKey {
+  const seeds = [Buffer.from(seed, "utf8"), programId.toBuffer()];
+
+  if (signerSeed) {
+    seeds.push(signerSeed.toBuffer());
+  }
+
   const [idlAccount] = anchor.web3.PublicKey.findProgramAddressSync(
-    [Buffer.from(seed, "utf8"), programId.toBuffer()],
+    seeds,
     new PublicKey(METADATA_PROGRAM_ID)
   );
   return idlAccount;
@@ -514,11 +581,12 @@ function getCanonicalPdaAddressBySeed(
 
 async function fetchIDL(
   programId: PublicKey,
-  rpcUrl: string
+  rpcUrl: string,
+  signerSeed?: PublicKey
 ): Promise<string | null> {
   const connection = new anchor.web3.Connection(rpcUrl, "confirmed");
 
-  const idlAccount = getCanonicalPdaAddressBySeed(programId, IDL_SEED);
+  const idlAccount = getMetadataAddressBySeed(programId, IDL_SEED, signerSeed);
   const accountInfo = await connection.getAccountInfo(idlAccount);
 
   // If we get the IDL account we can not access the additional data bytes at
@@ -628,19 +696,21 @@ async function withRetry<T>(
 }
 
 /**
- * Uploads program metadata for a program
+ * Uploads program metadata
  * @param {ProgramMetaData} metadata - Program metadata object
  * @param {PublicKey} programId - Program ID
  * @param {Keypair} keypair - Keypair for transaction signing
  * @param {string} rpcUrl - RPC URL for the connection
  * @param {number} priorityFeesPerCU - Priority fees per compute unit
+ * @param {boolean} addSignerSeed - Whether to add signer's public key as additional seed (optional, defaults to false)
  */
 async function uploadProgramMetadata(
   metadata: ProgramMetaData,
   programId: PublicKey,
   keypair: Keypair,
   rpcUrl: string,
-  priorityFeesPerCU: number
+  priorityFeesPerCU: number,
+  addSignerSeed: boolean = false
 ) {
   // Validate required fields
   if (!metadata.name) {
@@ -662,28 +732,32 @@ async function uploadProgramMetadata(
     keypair,
     rpcUrl,
     priorityFeesPerCU,
-    PROGRAM_METADATA_SEED
+    PROGRAM_METADATA_SEED,
+    addSignerSeed
   );
 }
 
 /**
- * Fetches program metadata for a program
+ * Fetches program metadata
  * @param {PublicKey} programId - Program ID
  * @param {string} rpcUrl - RPC URL for the connection
+ * @param {PublicKey} signerSeed - Optional signer public key to use as additional seed
  * @returns {Promise<ProgramMetaData>} The program metadata
  */
 async function fetchProgramMetadata(
   programId: PublicKey,
-  rpcUrl: string
+  rpcUrl: string,
+  signerSeed?: PublicKey
 ): Promise<ProgramMetaData> {
   const connection = new anchor.web3.Connection(
     rpcUrl,
     CONFIRMATION_COMMITMENT
   );
 
-  const metadataAccount = getCanonicalPdaAddressBySeed(
+  const metadataAccount = getMetadataAddressBySeed(
     programId,
-    PROGRAM_METADATA_SEED
+    PROGRAM_METADATA_SEED,
+    signerSeed
   );
   const accountInfo = await connection.getAccountInfo(metadataAccount);
 
@@ -728,12 +802,13 @@ async function fetchProgramMetadata(
 }
 
 /**
- * Uploads program metadata from a JSON file path
- * @param {string} metadataPath - Path to the metadata JSON file
+ * Uploads program metadata from a JSON file
+ * @param {string} metadataPath - Path to metadata JSON file
  * @param {PublicKey} programId - Program ID
  * @param {Keypair} keypair - Keypair for transaction signing
  * @param {string} rpcUrl - RPC URL for the connection
  * @param {number} priorityFeesPerCU - Priority fees per compute unit
+ * @param {boolean} addSignerSeed - Whether to add signer's public key as additional seed (optional, defaults to false)
  * @throws {IDLError} If file not found or upload fails
  */
 async function uploadProgramMetadataByJsonPath(
@@ -741,7 +816,8 @@ async function uploadProgramMetadataByJsonPath(
   programId: PublicKey,
   keypair: Keypair,
   rpcUrl: string,
-  priorityFeesPerCU: number
+  priorityFeesPerCU: number,
+  addSignerSeed: boolean = false
 ) {
   if (!fs.existsSync(metadataPath)) {
     throw new IDLError(`File not found: ${metadataPath}`);
@@ -763,24 +839,28 @@ async function uploadProgramMetadataByJsonPath(
     programId,
     keypair,
     rpcUrl,
-    priorityFeesPerCU
+    priorityFeesPerCU,
+    addSignerSeed
   );
 }
 
 /**
  * Uploads program metadata from a URL
- * @param {string} url - URL pointing to the metadata JSON
+ * @param {string} url - URL pointing to metadata JSON
  * @param {PublicKey} programId - Program ID
  * @param {Keypair} keypair - Keypair for transaction signing
  * @param {string} rpcUrl - RPC URL for the connection
  * @param {number} priorityFeesPerCU - Priority fees per compute unit
+ * @param {boolean} addSignerSeed - Whether to add signer's public key as additional seed (optional, defaults to false)
+ * @throws {IDLError} If URL fetch fails or metadata is invalid
  */
 async function uploadProgramMetadataByUrl(
   url: string,
   programId: PublicKey,
   keypair: Keypair,
   rpcUrl: string,
-  priorityFeesPerCU: number
+  priorityFeesPerCU: number,
+  addSignerSeed: boolean = false
 ) {
   try {
     // Check that the URL is actually a metadata json
@@ -811,7 +891,8 @@ async function uploadProgramMetadataByUrl(
       keypair,
       rpcUrl,
       priorityFeesPerCU,
-      PROGRAM_METADATA_SEED
+      PROGRAM_METADATA_SEED,
+      addSignerSeed
     );
   } catch (error) {
     if (error instanceof IDLError) {
@@ -833,9 +914,9 @@ export {
   uploadProgramMetadataByUrl,
   setAuthority,
   fetchIDL,
-  getCanonicalIdlAddress,
-  getCanonicalMetadataIdlAddress,
-  getCanonicalPdaAddressBySeed,
+  getAssociatedIdlAddress,
+  getAssociatedMetadataIdlAddress,
+  getMetadataAddressBySeed,
   uploadGenericDataBySeed,
   setupConnection,
   uploadProgramMetadata,

@@ -4,14 +4,13 @@ import { UploadIdlAnchor } from "../target/types/upload_idl_anchor";
 import {
   fetchIDL,
   fetchProgramMetadata,
-  getCanonicalIdlAddress,
-  getCanonicalMetadataIdlAddress,
+  getAssociatedIdlAddress,
+  getAssociatedMetadataIdlAddress,
   setAuthority,
   uploadIdlByJsonPath,
   uploadIdlUrl,
   uploadProgramMetadataByJsonPath,
   uploadProgramMetadataByUrl,
-  // } from "my-idl-test/dist/ProgramMetaData";
 } from "../js_sdk/src/ProgramMetaData";
 import { assert } from "chai";
 import { inflate } from "pako";
@@ -49,9 +48,9 @@ describe("upload-idl-anchor", () => {
   it("Write IDL Url", async () => {
     const url = "http://example.com";
 
-    await uploadIdlUrl(url, TEST_IDL_PROGRAM, keypair, rpcUrl, 0);
+    await uploadIdlUrl(url, TEST_IDL_PROGRAM, keypair, rpcUrl, 0, false);
 
-    const idlAccount = getCanonicalIdlAddress(TEST_IDL_PROGRAM);
+    const idlAccount = getAssociatedIdlAddress(TEST_IDL_PROGRAM);
 
     const idl = await program.account.idlAccount.fetch(idlAccount);
     const accountInfo = await connection.getAccountInfo(idlAccount);
@@ -74,9 +73,16 @@ describe("upload-idl-anchor", () => {
   });
 
   it("Write IDL json !", async () => {
-    await uploadIdlByJsonPath(IDL_PATH, TEST_IDL_PROGRAM, keypair, rpcUrl, 0);
+    await uploadIdlByJsonPath(
+      IDL_PATH,
+      TEST_IDL_PROGRAM,
+      keypair,
+      rpcUrl,
+      0,
+      false
+    );
 
-    const idlAccount = getCanonicalIdlAddress(TEST_IDL_PROGRAM);
+    const idlAccount = getAssociatedIdlAddress(TEST_IDL_PROGRAM);
 
     console.log("Idl account", idlAccount.toBase58());
     const accountInfo = await connection.getAccountInfo(idlAccount);
@@ -110,13 +116,42 @@ describe("upload-idl-anchor", () => {
       TEST_IDL_PROGRAM,
       keypair,
       rpcUrl,
-      0
+      0,
+      false
     );
 
     const metadata = await fetchProgramMetadata(TEST_IDL_PROGRAM, rpcUrl);
 
     console.log("Metadata", metadata);
 
+    assert.equal(
+      metadata.logo,
+      LogoUrl,
+      "The saved string should match the input URL"
+    );
+  });
+
+  it.only("Upload non associated metadata", async () => {
+    const LogoUrl =
+      "https://upload.wikimedia.org/wikipedia/en/b/b9/Solana_logo.png";
+
+    await uploadProgramMetadataByJsonPath(
+      META_DATA_JSON,
+      TEST_IDL_PROGRAM,
+      keypair,
+      rpcUrl,
+      0,
+      true
+    );
+
+    const metadata = await fetchProgramMetadata(
+      TEST_IDL_PROGRAM,
+      rpcUrl,
+      keypair.publicKey
+    );
+
+    console.log("Metadata", metadata);
+    // This will still be the old logo because the authority was removed and the second upload was not confirmed
     assert.equal(
       metadata.logo,
       LogoUrl,
@@ -133,10 +168,11 @@ describe("upload-idl-anchor", () => {
       TEST_IDL_PROGRAM,
       keypair,
       rpcUrl,
-      0
+      0,
+      false
     );
 
-    const metadataAccount = getCanonicalMetadataIdlAddress(TEST_IDL_PROGRAM);
+    const metadataAccount = getAssociatedMetadataIdlAddress(TEST_IDL_PROGRAM);
 
     // Remove authority
     await setAuthority(metadataAccount, PublicKey.default, keypair, rpcUrl, 0);
@@ -148,7 +184,8 @@ describe("upload-idl-anchor", () => {
         TEST_IDL_PROGRAM,
         keypair,
         rpcUrl,
-        0
+        0,
+        false
       );
     } catch (error) {
       console.log("Expected Error because authority was removed", error);

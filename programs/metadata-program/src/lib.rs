@@ -7,6 +7,8 @@ declare_id!("pmetaypqG6SiB47xMigYVMAkuHDWeSDXcv3zzDrJJvA");
 #[program]
 pub mod metadata_program {
 
+    use anchor_lang::solana_program::{bpf_loader, bpf_loader_deprecated};
+
     use super::*;
 
     #[error_code]
@@ -27,10 +29,64 @@ pub mod metadata_program {
         msg!("Signer {:?}!", ctx.accounts.signer.key);              
         msg!("Authority {:?}!", ctx.accounts.program_data.upgrade_authority_address);              
 
-        if ctx.accounts.program_id.owner.key() != bpf_loader_upgradeable::ID {
+        if ctx.accounts.program_id.owner.key() != bpf_loader_upgradeable::ID 
+        && ctx.accounts.program_id.owner.key() != bpf_loader::ID 
+        && ctx.accounts.program_id.owner.key() != bpf_loader_deprecated::ID {
             return Err(MyError::NotAProgram.into());
         }
+        
+        if !ctx.accounts.program_id.executable {
+            return Err(MyError::NotExecutable.into());
+        }
+    
+        // Borrow the program's account data
+        let mut program_borrowed_data: &[u8] = &ctx.accounts.program_id.try_borrow_data()?;
 
+        // Deserialize the UpgradeableLoaderState from the program account data
+        let upgradable_loader_state =
+            UpgradeableLoaderState::try_deserialize_unchecked(&mut program_borrowed_data)?;
+
+        match upgradable_loader_state {
+            UpgradeableLoaderState::Uninitialized
+            | UpgradeableLoaderState::Buffer {
+                authority_address: _,
+            }
+            | UpgradeableLoaderState::ProgramData {
+                slot: _,
+                upgrade_authority_address: _,
+            } => {
+                return err!(MyError::ShouldBeProgramAccount);
+            }
+            UpgradeableLoaderState::Program {
+                programdata_address: program_data_address,
+            } => {
+                // Print out the program data address
+                msg!("Program Data Address: {:?}", program_data_address);
+
+                // Ensure the program data address matches the expected value
+                if program_data_address != ctx.accounts.program_data.key() {
+                    return err!(MyError::WrongAuthority);
+                }
+            }
+        }
+
+        // When all is good create PDA and save authority for later upgrades.
+        ctx.accounts.idl.authority = *ctx.accounts.signer.key;
+        Ok(())
+    }
+
+    pub fn initialize_with_signer_seed(ctx: Context<InitializeWithSignerSeed>, _seed: String) -> Result<()> {
+        msg!("IDL account initialized: {:?}", ctx.program_id);
+        
+        msg!("Signer {:?}!", ctx.accounts.signer.key);              
+        msg!("Authority {:?}!", ctx.accounts.program_data.upgrade_authority_address);              
+
+        if ctx.accounts.program_id.owner.key() != bpf_loader_upgradeable::ID 
+        && ctx.accounts.program_id.owner.key() != bpf_loader::ID 
+        && ctx.accounts.program_id.owner.key() != bpf_loader_deprecated::ID {
+            return Err(MyError::NotAProgram.into());
+        }
+        
         if !ctx.accounts.program_id.executable {
             return Err(MyError::NotExecutable.into());
         }
@@ -163,6 +219,26 @@ pub struct Initialize<'info> {
 }
 
 #[derive(Accounts)]
+#[instruction(seed: String)]
+pub struct InitializeWithSignerSeed<'info> {
+    #[account(
+        init,
+        seeds = [seed.as_ref(), program_id.key.as_ref(), signer.key.as_ref()],
+        bump,
+        payer = signer,
+        space = 8 + 32 + 4,
+    )]
+    pub idl: Account<'info, IdlAccount>,
+    #[account(mut)]
+    pub signer: Signer<'info>,
+    pub system_program: Program<'info, System>,
+    /// CHECK: This is the program id of the program you want to upload the IDL for. Checks are done in code.
+    pub program_id: AccountInfo<'info>,
+    // When we add signer seed we do NOT check if the signer is the program authority
+    pub program_data: Account<'info, ProgramData>,
+}
+
+#[derive(Accounts)]
 pub struct IdlAccounts<'info> {
     #[account(mut, has_one = authority)]
     pub idl: Account<'info, IdlAccount>,
@@ -176,8 +252,6 @@ pub struct IdlAccounts<'info> {
 pub struct Resize<'info> {
     #[account(
         mut,
-        seeds = [seed.as_ref(), program_id.key.as_ref()],
-        bump,
         realloc = len as usize, 
         realloc::zero = true, 
         realloc::payer = signer,
@@ -228,8 +302,6 @@ pub struct IdlSetBuffer<'info> {
     pub buffer: Account<'info, IdlAccount>,
     // The idl account to be updated with the buffer's data.
     #[account(mut, 
-        seeds = [seed.as_ref(), program_id.key.as_ref()],
-        bump,
         has_one = authority,
         constraint = idl.authority == authority.key()
     )]

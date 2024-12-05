@@ -108,6 +108,62 @@
       ]
     },
     {
+      "name": "initialize_with_signer_seed",
+      "discriminator": [
+        55,
+        45,
+        87,
+        223,
+        169,
+        179,
+        103,
+        71
+      ],
+      "accounts": [
+        {
+          "name": "idl",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "arg",
+                "path": "seed"
+              },
+              {
+                "kind": "account",
+                "path": "signer"
+              },
+              {
+                "kind": "account",
+                "path": "program_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "signer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "program_id"
+        },
+        {
+          "name": "program_data"
+        }
+      ],
+      "args": [
+        {
+          "name": "_seed",
+          "type": "string"
+        }
+      ]
+    },
+    {
       "name": "resize",
       "discriminator": [
         74,
@@ -122,19 +178,7 @@
       "accounts": [
         {
           "name": "idl",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "arg",
-                "path": "seed"
-              },
-              {
-                "kind": "account",
-                "path": "program_id"
-              }
-            ]
-          }
+          "writable": true
         },
         {
           "name": "signer",
@@ -211,19 +255,7 @@
         },
         {
           "name": "idl",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "arg",
-                "path": "seed"
-              },
-              {
-                "kind": "account",
-                "path": "program_id"
-              }
-            ]
-          }
+          "writable": true
         },
         {
           "name": "authority",

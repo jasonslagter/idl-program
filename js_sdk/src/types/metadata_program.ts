@@ -114,6 +114,62 @@ export type MetadataProgram = {
       ]
     },
     {
+      "name": "initializeWithSignerSeed",
+      "discriminator": [
+        55,
+        45,
+        87,
+        223,
+        169,
+        179,
+        103,
+        71
+      ],
+      "accounts": [
+        {
+          "name": "idl",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "arg",
+                "path": "seed"
+              },
+              {
+                "kind": "account",
+                "path": "signer"
+              },
+              {
+                "kind": "account",
+                "path": "programId"
+              }
+            ]
+          }
+        },
+        {
+          "name": "signer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "programId"
+        },
+        {
+          "name": "programData"
+        }
+      ],
+      "args": [
+        {
+          "name": "seed",
+          "type": "string"
+        }
+      ]
+    },
+    {
       "name": "resize",
       "discriminator": [
         74,
@@ -128,19 +184,7 @@ export type MetadataProgram = {
       "accounts": [
         {
           "name": "idl",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "arg",
-                "path": "seed"
-              },
-              {
-                "kind": "account",
-                "path": "programId"
-              }
-            ]
-          }
+          "writable": true
         },
         {
           "name": "signer",
@@ -217,19 +261,7 @@ export type MetadataProgram = {
         },
         {
           "name": "idl",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "arg",
-                "path": "seed"
-              },
-              {
-                "kind": "account",
-                "path": "programId"
-              }
-            ]
-          }
+          "writable": true
         },
         {
           "name": "authority",

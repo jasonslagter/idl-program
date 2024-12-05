@@ -47,7 +47,7 @@ program-metadata idl download <program-id> [output-file] \
 
 #### Metadata Commands
 
-You can also upload metadata for you program. This is the recommended format of the metadata json file. Similar to security.txt. 
+You can also upload metadata for you program. This is the recommended format of the metadata json file. Similar to security.txt.
 
 ```json
 {
@@ -121,6 +121,9 @@ program-metadata idl upload tests/testidl.json 6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1AD
   -k tests/wallet2.json -u https://api.devnet.solana.com
 
 program-metadata metadata upload tests/metadata.json 6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A \
+  -k tests/wallet2.json -u https://api.devnet.solana.com
+
+program-metadata metadata upload-url https://raw.githubusercontent.com/solana-developers/idl-program/refs/heads/main/tests/metadata.json 6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A \
   -k tests/wallet2.json -u https://api.devnet.solana.com
 
 # Download IDL to custom file
