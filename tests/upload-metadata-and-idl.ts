@@ -131,7 +131,7 @@ describe("upload-idl-anchor", () => {
     );
   });
 
-  it.only("Upload non associated metadata", async () => {
+  it("Upload non associated metadata", async () => {
     const LogoUrl =
       "https://upload.wikimedia.org/wikipedia/en/b/b9/Solana_logo.png";
 

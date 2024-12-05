@@ -201,32 +201,38 @@ async function initializeMetaDataBySeed(
   addSignerSeed: boolean = false
 ) {
   const connection = new anchor.web3.Connection(rpcUrl, "confirmed");
-  const provider = new anchor.AnchorProvider(
-    connection,
-    new anchor.Wallet(keypair),
-    {}
-  );
+  const provider = new anchor.AnchorProvider(connection, new anchor.Wallet(keypair), {});
   anchor.setProvider(provider);
   const program = new anchor.Program(IDL as MetadataProgram, provider);
 
   const idlAccountInfo = await connection.getAccountInfo(idlPdaAddress);
   if (!idlAccountInfo) {
+    // Get the program account to find its loader (owner)
+    const programAccountInfo = await connection.getAccountInfo(programId);
+    if (!programAccountInfo) {
+      throw new IDLError("Program account not found");
+    }
+
+    const programLoader = programAccountInfo.owner;
+    console.log("Program loader", programLoader.toBase58());
+
     const [programDataAddress] = await PublicKey.findProgramAddress(
       [programId.toBuffer()],
-      UPGRADABLE_LOADER_PROGRAM_ID
+      programLoader  // Use the actual program loader instead of hardcoded one
     );
 
-    var initializePdaInstruction;
     console.log("Add signer seed", addSignerSeed);
     console.log("Signer seed", keypair.publicKey.toBase58());
     console.log("Program data address", programDataAddress.toBase58());
-    if (addSignerSeed) {  
+
+    var initializePdaInstruction;
+    if (addSignerSeed) {
       initializePdaInstruction = await program.methods
         .initializeWithSignerSeed(seed)
         .accountsPartial({
           idl: idlPdaAddress,
           programId: programId,
-          programData: programDataAddress,
+          programData: programDataAddress,  // Use the actual program data address
         })
         .instruction();
     } else {
@@ -235,7 +241,7 @@ async function initializeMetaDataBySeed(
         .accountsPartial({
           idl: idlPdaAddress,
           programId: programId,
-          programData: programDataAddress,
+          programData: programDataAddress,  // Use the actual program data address
         })
         .instruction();
     }
