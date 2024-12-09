@@ -13,7 +13,7 @@ pub mod metadata_program {
 
     #[error_code]
     pub enum MyError {
-        #[msg("Only the program upgrade authority can initialize the IDL account")]
+        #[msg("Only the program upgrade authority can initialize the associated program metadata account")]
         WrongAuthority,        
         #[msg("The program account is not executable")]
         NotExecutable,
@@ -23,9 +23,7 @@ pub mod metadata_program {
         ShouldBeProgramAccount,
     }
 
-    pub fn initialize(ctx: Context<Initialize>, _seed: String) -> Result<()> {
-        msg!("IDL account initialized: {:?}", ctx.program_id);
-        
+    pub fn initialize(ctx: Context<Initialize>, _seed: String) -> Result<()> {      
         msg!("Signer {:?}!", ctx.accounts.signer.key);              
         msg!("Authority {:?}!", ctx.accounts.program_data.upgrade_authority_address);              
 
@@ -71,13 +69,11 @@ pub mod metadata_program {
         }
 
         // When all is good create PDA and save authority for later upgrades.
-        ctx.accounts.idl.authority = *ctx.accounts.signer.key;
+        ctx.accounts.pda.authority = *ctx.accounts.signer.key;
         Ok(())
     }
 
-    pub fn initialize_with_signer_seed(ctx: Context<InitializeWithSignerSeed>, _seed: String) -> Result<()> {
-        msg!("IDL account initialized: {:?}", ctx.program_id);
-        
+    pub fn initialize_with_signer_seed(ctx: Context<InitializeWithSignerSeed>, _seed: String) -> Result<()> {      
         msg!("Signer {:?}!", ctx.accounts.signer.key);              
         msg!("Authority {:?}!", ctx.accounts.program_data.upgrade_authority_address);              
 
@@ -123,36 +119,36 @@ pub mod metadata_program {
         }
 
         // When all is good create PDA and save authority for later upgrades.
-        ctx.accounts.idl.authority = *ctx.accounts.signer.key;
+        ctx.accounts.pda.authority = *ctx.accounts.signer.key;
         Ok(())
     }
 
-    pub fn write_buffer(ctx: Context<WriteBuffer>, idl_data: Vec<u8>) -> Result<()> {
+    pub fn write_buffer(ctx: Context<WriteBuffer>, data: Vec<u8>) -> Result<()> {
         let prev_len: usize =
             ::std::convert::TryInto::<usize>::try_into(ctx.accounts.buffer.data_len).unwrap();
 
-        let new_len: usize = prev_len.checked_add(idl_data.len()).unwrap();
+        let new_len: usize = prev_len.checked_add(data.len()).unwrap();
 
         ctx.accounts.buffer.data_len = ctx
             .accounts
             .buffer
             .data_len
-            .checked_add(::std::convert::TryInto::<u32>::try_into(idl_data.len()).unwrap())
+            .checked_add(::std::convert::TryInto::<u32>::try_into(data.len()).unwrap())
             .unwrap();
 
-        let mut idl_bytes = ctx.accounts.buffer.trailing_data_mut();
-        let idl_expansion = &mut idl_bytes[prev_len..new_len];
-        require_eq!(idl_expansion.len(), idl_data.len());
-        idl_expansion.copy_from_slice(&idl_data[..]);
+        let mut trailing_bytes = ctx.accounts.buffer.trailing_data_mut();
+        let data_expansion = &mut trailing_bytes[prev_len..new_len];
+        require_eq!(data_expansion.len(), data.len());
+        data_expansion.copy_from_slice(&data[..]);
         Ok(())
     }
 
-    pub fn create_buffer(ctx: Context<IdlCreateBuffer>) -> Result<()> {
+    pub fn create_buffer(ctx: Context<CreateBuffer>) -> Result<()> {
         ctx.accounts.buffer.authority = *ctx.accounts.authority.key;
         Ok(())
     }
 
-    pub fn close_buffer(_ctx: Context<IdlCloseBuffer>) -> Result<()> {
+    pub fn close_buffer(_ctx: Context<CloseBuffer>) -> Result<()> {
         Ok(())
     }
 
@@ -160,17 +156,17 @@ pub mod metadata_program {
         Ok(())
     }
 
-    pub fn set_authority(ctx: Context<IdlAccounts>, new_authority: Pubkey) -> Result<()> {
-        ctx.accounts.idl.authority = new_authority;
+    pub fn set_authority(ctx: Context<MetadataAccounts>, new_authority: Pubkey) -> Result<()> {
+        ctx.accounts.pda.authority = new_authority;
         Ok(())
     }
 
-    pub fn set_buffer(ctx: Context<IdlSetBuffer>, _seed: String) -> Result<()> {
-        ctx.accounts.idl.data_len = ctx.accounts.buffer.data_len;
+    pub fn set_buffer(ctx: Context<SetBuffer>, _seed: String) -> Result<()> {
+        ctx.accounts.pda.data_len = ctx.accounts.buffer.data_len;
 
-        use IdlUploadTrailingData;
+        use MetadataUploadTrailingData;
         let buffer_len = ::std::convert::TryInto::<usize>::try_into(ctx.accounts.buffer.data_len).unwrap();
-        let mut target = ctx.accounts.idl.trailing_data_mut();
+        let mut target = ctx.accounts.pda.trailing_data_mut();
         let source = &ctx.accounts.buffer.trailing_data()[..buffer_len];
         require_gte!(target.len(), buffer_len);
         target[..buffer_len].copy_from_slice(source);
@@ -180,12 +176,12 @@ pub mod metadata_program {
 
     use std::cell::{Ref, RefMut};
 
-    pub trait IdlUploadTrailingData<'info> {
+    pub trait MetadataUploadTrailingData<'info> {
         fn trailing_data(self) -> Ref<'info, [u8]>;
         fn trailing_data_mut(self) -> RefMut<'info, [u8]>;
     }
 
-    impl<'a, 'info: 'a> IdlUploadTrailingData<'a> for &'a Account<'info, IdlAccount> {
+    impl<'a, 'info: 'a> MetadataUploadTrailingData<'a> for &'a Account<'info, MetadataAccount> {
         fn trailing_data(self) -> Ref<'a, [u8]> {
             let info: &AccountInfo<'info> = self.as_ref();
             Ref::map(info.try_borrow_data().unwrap(), |d| &d[44..])
@@ -207,11 +203,11 @@ pub struct Initialize<'info> {
         payer = signer,
         space = 8 + 32 + 4,
     )]
-    pub idl: Account<'info, IdlAccount>,
+    pub pda: Account<'info, MetadataAccount>,
     #[account(mut)]
     pub signer: Signer<'info>,
     pub system_program: Program<'info, System>,
-    /// CHECK: This is the program id of the program you want to upload the IDL for. Checks are done in code.
+    /// CHECK: This is the program id of the program you want to upload the metadata for. Checks are done in code.
     pub program_id: AccountInfo<'info>,
     // Make sure that the signer is actually the upgrade authority of the program.
     #[account(constraint = program_data.upgrade_authority_address == Some(signer.key()))]
@@ -228,26 +224,26 @@ pub struct InitializeWithSignerSeed<'info> {
         payer = signer,
         space = 8 + 32 + 4,
     )]
-    pub idl: Account<'info, IdlAccount>,
+    pub pda: Account<'info, MetadataAccount>,
     #[account(mut)]
     pub signer: Signer<'info>,
     pub system_program: Program<'info, System>,
-    /// CHECK: This is the program id of the program you want to upload the IDL for. Checks are done in code.
+    /// CHECK: This is the program id of the program you want to upload the metadata for. Checks are done in code.
     pub program_id: AccountInfo<'info>,
     // When we add signer seed we do NOT check if the signer is the program authority
     pub program_data: Account<'info, ProgramData>,
 }
 
 #[derive(Accounts)]
-pub struct IdlAccounts<'info> {
+pub struct MetadataAccounts<'info> {
     #[account(mut, has_one = authority)]
-    pub idl: Account<'info, IdlAccount>,
+    pub pda: Account<'info, MetadataAccount>,
     #[account(constraint = authority.key != &ERASED_AUTHORITY)]
     pub authority: Signer<'info>,
 }
 
 #[derive(Accounts)]
-// Seed can be dynamic. For IDL use "idl" as seed.
+// Seed can be dynamic. For IDL use "idl" as seed. For metadata use "metadata" as seed.
 #[instruction(len: u16, seed: String)]
 pub struct Resize<'info> {
     #[account(
@@ -255,31 +251,31 @@ pub struct Resize<'info> {
         realloc = len as usize, 
         realloc::zero = true, 
         realloc::payer = signer,
-        constraint = idl.authority == signer.key()
+        constraint = pda.authority == signer.key()
     )]
-    pub idl: Account<'info, IdlAccount>,
+    pub pda: Account<'info, MetadataAccount>,
     #[account(mut)]
     pub signer: Signer<'info>,
     pub system_program: Program<'info, System>,
-    /// CHECK: This is the program id of the program you want to upload the IDL for.
+    /// CHECK: This is the program id of the program you want to upload the metadata for.
     pub program_id: AccountInfo<'info>,
 }
 
 
-// Accounts for creating an idl buffer.
+// Accounts for creating an metadata buffer.
 #[derive(Accounts)]
-pub struct IdlCreateBuffer<'info> {
+pub struct CreateBuffer<'info> {
     #[account(zero)]
-    pub buffer: Account<'info, IdlAccount>,
+    pub buffer: Account<'info, MetadataAccount>,
     #[account(constraint = authority.key != &ERASED_AUTHORITY)]
     pub authority: Signer<'info>,
 }
 
 // Close buffer to claim back SOL
 #[derive(Accounts)]
-pub struct IdlCloseBuffer<'info> {
+pub struct CloseBuffer<'info> {
     #[account(mut, close = authority, constraint = buffer.authority == authority.key())]
-    pub buffer: Account<'info, IdlAccount>,
+    pub buffer: Account<'info, MetadataAccount>,
     #[account(constraint = authority.key != &ERASED_AUTHORITY)]
     pub authority: Signer<'info>,
 }
@@ -287,25 +283,25 @@ pub struct IdlCloseBuffer<'info> {
 #[derive(Accounts)]
 pub struct WriteBuffer<'info> {
     #[account(mut, constraint = buffer.authority == signer.key())]
-    pub buffer: Account<'info, IdlAccount>,
+    pub buffer: Account<'info, MetadataAccount>,
     #[account(mut, constraint = signer.key != &ERASED_AUTHORITY)]
     pub signer: Signer<'info>,
     pub system_program: Program<'info, System>,
 }
 
-// Accounts for upgrading the canonical IdlAccount with the buffer.
+// Accounts for upgrading the canonical MetadataAccount with the buffer.
 #[derive(Accounts)]
 #[instruction(seed: String)]
-pub struct IdlSetBuffer<'info> {
-    // The buffer with the new idl data.
-    #[account(mut, constraint = buffer.authority == idl.authority)]
-    pub buffer: Account<'info, IdlAccount>,
-    // The idl account to be updated with the buffer's data.
+pub struct SetBuffer<'info> {
+    // The buffer with the new metadata.
+    #[account(mut, constraint = buffer.authority == pda.authority)]
+    pub buffer: Account<'info, MetadataAccount>,
+    // The pda account to be updated with the buffer's data.
     #[account(mut, 
         has_one = authority,
-        constraint = idl.authority == authority.key()
+        constraint = pda.authority == authority.key()
     )]
-    pub idl: Account<'info, IdlAccount>,
+    pub pda: Account<'info, MetadataAccount>,
     #[account(constraint = authority.key != &ERASED_AUTHORITY)]
     pub authority: Signer<'info>,
     /// CHECK: This is the program id of the program you want to upload the IDL for.
@@ -313,9 +309,9 @@ pub struct IdlSetBuffer<'info> {
 }
 
 #[account]
-pub struct IdlAccount {
+pub struct MetadataAccount {
     authority: Pubkey,
     data_len: u32,
-    // program id? Needed? 
-    // The rest is compressed idl bytes.
+    // program id or seed needed? To make it easier to query the IDL by program id or seed.
+    // The rest is compressed metadata bytes.
 }

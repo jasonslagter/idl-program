@@ -75,7 +75,7 @@ export type MetadataProgram = {
       ],
       "accounts": [
         {
-          "name": "idl",
+          "name": "pda",
           "writable": true,
           "pda": {
             "seeds": [
@@ -127,7 +127,7 @@ export type MetadataProgram = {
       ],
       "accounts": [
         {
-          "name": "idl",
+          "name": "pda",
           "writable": true,
           "pda": {
             "seeds": [
@@ -137,11 +137,11 @@ export type MetadataProgram = {
               },
               {
                 "kind": "account",
-                "path": "signer"
+                "path": "programId"
               },
               {
                 "kind": "account",
-                "path": "programId"
+                "path": "signer"
               }
             ]
           }
@@ -183,7 +183,7 @@ export type MetadataProgram = {
       ],
       "accounts": [
         {
-          "name": "idl",
+          "name": "pda",
           "writable": true
         },
         {
@@ -224,14 +224,14 @@ export type MetadataProgram = {
       ],
       "accounts": [
         {
-          "name": "idl",
+          "name": "pda",
           "writable": true
         },
         {
           "name": "authority",
           "signer": true,
           "relations": [
-            "idl"
+            "pda"
           ]
         }
       ],
@@ -260,14 +260,14 @@ export type MetadataProgram = {
           "writable": true
         },
         {
-          "name": "idl",
+          "name": "pda",
           "writable": true
         },
         {
           "name": "authority",
           "signer": true,
           "relations": [
-            "idl"
+            "pda"
           ]
         },
         {
@@ -310,7 +310,7 @@ export type MetadataProgram = {
       ],
       "args": [
         {
-          "name": "idlData",
+          "name": "data",
           "type": "bytes"
         }
       ]
@@ -318,16 +318,16 @@ export type MetadataProgram = {
   ],
   "accounts": [
     {
-      "name": "idlAccount",
+      "name": "metadataAccount",
       "discriminator": [
-        140,
-        36,
-        166,
-        2,
-        103,
-        197,
-        33,
-        164
+        32,
+        224,
+        226,
+        224,
+        77,
+        64,
+        109,
+        234
       ]
     }
   ],
@@ -335,7 +335,7 @@ export type MetadataProgram = {
     {
       "code": 6000,
       "name": "wrongAuthority",
-      "msg": "Only the program upgrade authority can initialize the IDL account"
+      "msg": "Only the program upgrade authority can initialize the associated program metadata account"
     },
     {
       "code": 6001,
@@ -355,7 +355,7 @@ export type MetadataProgram = {
   ],
   "types": [
     {
-      "name": "idlAccount",
+      "name": "metadataAccount",
       "type": {
         "kind": "struct",
         "fields": [

@@ -136,15 +136,15 @@ async function uploadGenericDataBySeed(
 ) {
   const { connection, provider, program } = setupConnection(rpcUrl, keypair);
 
-  const idlAccount = getMetadataAddressBySeed(
+  const metadataAccount = getMetadataAddressBySeed(
     programId,
     seed,
     addSignerSeed ? keypair.publicKey : null
   );
-  console.log("Idl pda address", idlAccount.toBase58());
+  console.log("Metadata PDA address", metadataAccount.toBase58());
 
   await initializeMetaDataBySeed(
-    idlAccount,
+    metadataAccount,
     programId,
     keypair,
     rpcUrl,
@@ -152,7 +152,7 @@ async function uploadGenericDataBySeed(
     seed,
     addSignerSeed
   );
-  console.log("Initialized Idl account");
+  console.log("Initialized metadata account");
 
   const bufferAddress = await createBuffer(
     buffer,
@@ -187,7 +187,7 @@ async function uploadGenericDataBySeed(
 }
 
 async function initializeMetaDataBySeed(
-  idlPdaAddress: PublicKey,
+  metadataPdaAddress: PublicKey,
   programId: PublicKey,
   keypair: Keypair,
   rpcUrl: string,
@@ -204,8 +204,10 @@ async function initializeMetaDataBySeed(
   anchor.setProvider(provider);
   const program = new anchor.Program(IDL as MetadataProgram, provider);
 
-  const idlAccountInfo = await connection.getAccountInfo(idlPdaAddress);
-  if (!idlAccountInfo) {
+  const metadataAccountInfo = await connection.getAccountInfo(
+    metadataPdaAddress
+  );
+  if (!metadataAccountInfo) {
     // Get the program account to find its loader (owner)
     const programAccountInfo = await connection.getAccountInfo(programId);
     if (!programAccountInfo) {
@@ -229,7 +231,7 @@ async function initializeMetaDataBySeed(
       initializePdaInstruction = await program.methods
         .initializeWithSignerSeed(seed)
         .accountsPartial({
-          idl: idlPdaAddress,
+          pda: metadataPdaAddress,
           programId: programId,
           programData: programDataAddress, // Use the actual program data address
         })
@@ -238,7 +240,7 @@ async function initializeMetaDataBySeed(
       initializePdaInstruction = await program.methods
         .initialize(seed)
         .accountsPartial({
-          idl: idlPdaAddress,
+          pda: metadataPdaAddress,
           programId: programId,
           programData: programDataAddress, // Use the actual program data address
         })
@@ -260,12 +262,12 @@ async function initializeMetaDataBySeed(
       console.log("Create IDL PDA signature", signature);
     });
   } else {
-    console.log("Idl account already exists");
+    console.log("Metadata account already exists");
   }
 }
 
 async function setAuthority(
-  idlPdaAddress: PublicKey,
+  metadataPdaAddress: PublicKey,
   newAuthority: PublicKey,
   keypair: Keypair,
   rpcUrl: string,
@@ -280,10 +282,10 @@ async function setAuthority(
   anchor.setProvider(provider);
   const program = new anchor.Program(IDL as MetadataProgram, provider);
 
-  const initializePdaInstruction = await program.methods
+  const setAuthorityInstruction = await program.methods
     .setAuthority(newAuthority)
     .accountsPartial({
-      idl: idlPdaAddress,
+      pda: metadataPdaAddress,
       authority: keypair.publicKey,
     })
     .instruction();
@@ -299,7 +301,7 @@ async function setAuthority(
     tx.add(priorityFeeInstruction);
   }
 
-  tx.add(initializePdaInstruction);
+  tx.add(setAuthorityInstruction);
   tx.recentBlockhash = getLatestBlockhash.blockhash;
   tx.feePayer = keypair.publicKey;
   tx.sign(keypair);
@@ -420,16 +422,17 @@ async function setBuffer(
   addSignerSeed: boolean = false
 ) {
   const { connection, provider, program } = setupConnection(rpcUrl, keypair);
-
-  const idlAccount = getMetadataAddressBySeed(
+  const metadataAccount = getMetadataAddressBySeed(
     programId,
     seed,
     addSignerSeed ? keypair.publicKey : null
   );
 
-  const idlAccountAccountInfo = await connection.getAccountInfo(idlAccount);
-  if (!idlAccountAccountInfo) {
-    throw new IDLError("IDL account not found");
+  const metadataAccountAccountInfo = await connection.getAccountInfo(
+    metadataAccount
+  );
+  if (!metadataAccountAccountInfo) {
+    throw new IDLError("Metadata account not found");
   }
   const bufferAccountAccountInfo = await connection.getAccountInfo(
     bufferAddress
@@ -439,10 +442,10 @@ async function setBuffer(
     throw new IDLError("Buffer account not found");
   }
 
-  let idlAccountSize = idlAccountAccountInfo.data.length;
+  let metadataAccountSize = metadataAccountAccountInfo.data.length;
   const bufferAccountSize = bufferAccountAccountInfo.data.length;
   console.log(
-    `IDL account size ${idlAccountSize} Buffer account size ${bufferAccountSize}`
+    `Metadata account size ${metadataAccountSize} Buffer account size ${bufferAccountSize}`
   );
 
   const tx = await createTransaction(
@@ -452,27 +455,27 @@ async function setBuffer(
   );
 
   // Add resize instructions
-  if (bufferAccountSize < idlAccountSize) {
+  if (bufferAccountSize < metadataAccountSize) {
     const resizeInstruction = await program.methods
       .resize(bufferAccountSize, seed)
       .accountsPartial({
-        idl: idlAccount,
+        pda: metadataAccount,
         programId: programId,
       })
       .instruction();
     tx.add(resizeInstruction);
-    console.log("Resizing IDL account to: ", bufferAccountSize);
+    console.log("Resizing Metadata account to: ", bufferAccountSize);
   } else {
-    let leftOverToResize = Math.max(0, bufferAccountSize - idlAccountSize);
+    let leftOverToResize = Math.max(0, bufferAccountSize - metadataAccountSize);
 
     while (leftOverToResize > 0) {
       // Determine the chunk size for this resize step (max 10KB per step)
       const chunkSize = Math.min(MAX_RESIZE_STEP, leftOverToResize);
-      idlAccountSize += chunkSize;
+      metadataAccountSize += chunkSize;
       const resizeInstruction = await program.methods
-        .resize(idlAccountSize, seed)
+        .resize(metadataAccountSize, seed)
         .accountsPartial({
-          idl: idlAccount,
+          pda: metadataAccount,
           programId: programId,
         })
         .instruction();
@@ -488,8 +491,9 @@ async function setBuffer(
   const setBufferInstruction = await program.methods
     .setBuffer(seed)
     .accountsPartial({
-      idl: idlAccount,
+      pda: metadataAccount,
       buffer: bufferAddress,
+      authority: keypair.publicKey,
       programId: programId,
     })
     .instruction();

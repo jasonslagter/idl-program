@@ -36,7 +36,7 @@ const keypair = Keypair.fromSecretKey(
   ])
 );
 
-describe("upload-idl-anchor", () => {
+describe("Test metadata program with idl and program metadata", () => {
   before(async () => {
     const airdropSig = await connection.requestAirdrop(
       keypair.publicKey,
@@ -52,7 +52,7 @@ describe("upload-idl-anchor", () => {
 
     const idlAccount = getAssociatedIdlAddress(TEST_IDL_PROGRAM);
 
-    const idl = await program.account.idlAccount.fetch(idlAccount);
+    const idl = await program.account.metadataAccount.fetch(idlAccount);
     const accountInfo = await connection.getAccountInfo(idlAccount);
 
     if (!accountInfo) {

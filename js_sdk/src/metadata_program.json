@@ -69,7 +69,7 @@
       ],
       "accounts": [
         {
-          "name": "idl",
+          "name": "pda",
           "writable": true,
           "pda": {
             "seeds": [
@@ -121,7 +121,7 @@
       ],
       "accounts": [
         {
-          "name": "idl",
+          "name": "pda",
           "writable": true,
           "pda": {
             "seeds": [
@@ -131,11 +131,11 @@
               },
               {
                 "kind": "account",
-                "path": "signer"
+                "path": "program_id"
               },
               {
                 "kind": "account",
-                "path": "program_id"
+                "path": "signer"
               }
             ]
           }
@@ -177,7 +177,7 @@
       ],
       "accounts": [
         {
-          "name": "idl",
+          "name": "pda",
           "writable": true
         },
         {
@@ -218,14 +218,14 @@
       ],
       "accounts": [
         {
-          "name": "idl",
+          "name": "pda",
           "writable": true
         },
         {
           "name": "authority",
           "signer": true,
           "relations": [
-            "idl"
+            "pda"
           ]
         }
       ],
@@ -254,14 +254,14 @@
           "writable": true
         },
         {
-          "name": "idl",
+          "name": "pda",
           "writable": true
         },
         {
           "name": "authority",
           "signer": true,
           "relations": [
-            "idl"
+            "pda"
           ]
         },
         {
@@ -304,7 +304,7 @@
       ],
       "args": [
         {
-          "name": "idl_data",
+          "name": "data",
           "type": "bytes"
         }
       ]
@@ -312,16 +312,16 @@
   ],
   "accounts": [
     {
-      "name": "IdlAccount",
+      "name": "MetadataAccount",
       "discriminator": [
-        140,
-        36,
-        166,
-        2,
-        103,
-        197,
-        33,
-        164
+        32,
+        224,
+        226,
+        224,
+        77,
+        64,
+        109,
+        234
       ]
     }
   ],
@@ -329,7 +329,7 @@
     {
       "code": 6000,
       "name": "WrongAuthority",
-      "msg": "Only the program upgrade authority can initialize the IDL account"
+      "msg": "Only the program upgrade authority can initialize the associated program metadata account"
     },
     {
       "code": 6001,
@@ -349,7 +349,7 @@
   ],
   "types": [
     {
-      "name": "IdlAccount",
+      "name": "MetadataAccount",
       "type": {
         "kind": "struct",
         "fields": [
