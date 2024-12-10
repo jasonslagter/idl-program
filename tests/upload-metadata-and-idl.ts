@@ -18,6 +18,7 @@ import { MetadataProgram } from "../target/types/metadata_program";
 
 const IDL_PATH = "./tests/testidl.json";
 const META_DATA_JSON = "./tests/metadata.json";
+const META_DATA_ACCOUNT_OFFSET = 44;
 
 const TEST_IDL_PROGRAM = new PublicKey(
   "6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A"
@@ -60,7 +61,7 @@ describe("Test metadata program with idl and program metadata", () => {
       return;
     }
 
-    const rawData = accountInfo.data.slice(44, 44 + idl.dataLen); // Skip metadata (44 bytes + 8 discriminator, 4 dataLen, 32 authority)
+    const rawData = accountInfo.data.slice(META_DATA_ACCOUNT_OFFSET, META_DATA_ACCOUNT_OFFSET + idl.dataLen); // Skip metadata (44 bytes + 8 discriminator, 4 dataLen, 32 authority)
     const decompressedData = inflate(rawData);
     const decompressedUrl = Buffer.from(decompressedData).toString("utf8");
 
