@@ -135,14 +135,14 @@ async function uploadGenericDataBySeed(
   addSignerSeed: boolean = false
 ) {
   const { connection, provider, program } = setupConnection(rpcUrl, keypair);
-
   const metadataAccount = getMetadataAddressBySeed(
     programId,
     seed,
-    addSignerSeed ? keypair.publicKey : null
+    addSignerSeed ? keypair.publicKey : undefined
   );
   console.log("Metadata PDA address", metadataAccount.toBase58());
 
+  // Initialize metadata account and wait for confirmation
   await initializeMetaDataBySeed(
     metadataAccount,
     programId,
@@ -154,6 +154,7 @@ async function uploadGenericDataBySeed(
   );
   console.log("Initialized metadata account");
 
+  // Create buffer and wait for confirmation
   const bufferAddress = await createBuffer(
     buffer,
     keypair,
@@ -165,6 +166,7 @@ async function uploadGenericDataBySeed(
   }
   console.log("Buffer created");
 
+  // Write buffer and wait for confirmation
   await writeBuffer(
     buffer,
     bufferAddress.publicKey,
@@ -174,6 +176,7 @@ async function uploadGenericDataBySeed(
   );
   console.log("Buffer written");
 
+  // Set buffer and wait for confirmation
   await setBuffer(
     bufferAddress.publicKey,
     programId,
@@ -425,7 +428,7 @@ async function setBuffer(
   const metadataAccount = getMetadataAddressBySeed(
     programId,
     seed,
-    addSignerSeed ? keypair.publicKey : null
+    addSignerSeed ? keypair.publicKey : undefined
   );
 
   const metadataAccountAccountInfo = await connection.getAccountInfo(
@@ -519,11 +522,11 @@ async function setBuffer(
 }
 
 function getAssociatedIdlAddress(programId: PublicKey): PublicKey {
-  return getMetadataAddressBySeed(programId, IDL_SEED, null);
+  return getMetadataAddressBySeed(programId, IDL_SEED);
 }
 
-function getAssociatedMetadataIdlAddress(programId: PublicKey): PublicKey {
-  return getMetadataAddressBySeed(programId, PROGRAM_METADATA_SEED, null);
+function getAssociatedMetadataAddress(programId: PublicKey): PublicKey {
+  return getMetadataAddressBySeed(programId, PROGRAM_METADATA_SEED);
 }
 
 /**
@@ -576,7 +579,7 @@ async function fetchIDL(
     METADATA_OFFSET - 4,
     METADATA_OFFSET
   ); // `data_len` starts at offset 40
-  const dataLength = new DataView(dataLenBytes.buffer).getUint32(0, true); // Little-endian
+  const dataLength = new DataView(dataLenBytes.buffer).getUint32(0); // Little-endian
 
   const compressedData = accountInfo.data.slice(
     METADATA_OFFSET,
@@ -744,7 +747,7 @@ async function fetchProgramMetadata(
     DATA_LENGTH_OFFSET,
     METADATA_OFFSET
   );
-  const dataLength = new DataView(dataLenBytes.buffer).getUint32(0, true);
+  const dataLength = new DataView(dataLenBytes.buffer).getUint32(0);
 
   const compressedData = accountInfo.data.slice(
     METADATA_OFFSET,
@@ -888,10 +891,9 @@ export {
   setAuthority,
   fetchIDL,
   getAssociatedIdlAddress,
-  getAssociatedMetadataIdlAddress,
+  getAssociatedMetadataAddress,
   getMetadataAddressBySeed,
   uploadGenericDataBySeed,
-  setupConnection,
   uploadProgramMetadata,
   fetchProgramMetadata,
   ProgramMetaData,

@@ -69,7 +69,10 @@ idlCommand
       );
       console.log("IDL uploaded successfully!");
     } catch (error) {
-      console.error("Error:", error.message);
+      console.error(
+        "Error:",
+        error instanceof Error ? error.message : "Unknown error occurred"
+      );
       process.exit(1);
     }
   });
@@ -78,7 +81,11 @@ idlCommand
   .command("upload-url <url> <program-id>")
   .description("Upload IDL from URL")
   .option("-k, --keypair <path>", "Path to keypair file")
-  .option("-p, --priority-fees <number>", "Priority fees per compute unit", "100000")
+  .option(
+    "-p, --priority-fees <number>",
+    "Priority fees per compute unit",
+    "100000"
+  )
   .option("-u, --url <string>", "Custom RPC URL")
   .option("-ul, --url-local", "Use localhost RPC (default)")
   .option("-ud, --url-devnet", "Use Devnet RPC")
@@ -109,7 +116,7 @@ idlCommand
       );
       console.log("IDL URL uploaded successfully!");
     } catch (error) {
-      console.error("Error:", error.message);
+      console.error("Error:", error instanceof Error ? error.message : "Unknown error occurred");
       process.exit(1);
     }
   });
@@ -136,10 +143,13 @@ idlCommand
         rpcUrl,
         signerPubkey
       );
-      fs.writeFileSync(output, idl);
+      if (!idl) {
+        throw new Error("No IDL found");
+      }
+      fs.writeFileSync(output, idl ?? "");
       console.log(`IDL downloaded to ${output}`);
     } catch (error) {
-      console.error("Error:", error.message);
+      console.error("Error:", error instanceof Error ? error.message : "Unknown error occurred");
       process.exit(1);
     }
   });
@@ -153,7 +163,11 @@ metadataCommand
   .command("upload <file> <program-id>")
   .description("Upload metadata from a file")
   .option("-k, --keypair <path>", "Path to keypair file")
-  .option("-p, --priority-fees <number>", "Priority fees per compute unit", "100000")
+  .option(
+    "-p, --priority-fees <number>",
+    "Priority fees per compute unit",
+    "100000"
+  )
   .option("-u, --url <string>", "Custom RPC URL")
   .option("-ul, --url-local", "Use localhost RPC (default)")
   .option("-ud, --url-devnet", "Use Devnet RPC")
@@ -184,7 +198,7 @@ metadataCommand
       );
       console.log("Metadata uploaded successfully!");
     } catch (error) {
-      console.error("Error:", error.message);
+      console.error("Error:", error instanceof Error ? error.message : "Unknown error occurred");
       process.exit(1);
     }
   });
@@ -193,7 +207,11 @@ metadataCommand
   .command("upload-url <url> <program-id>")
   .description("Upload metadata from URL")
   .option("-k, --keypair <path>", "Path to keypair file")
-  .option("-p, --priority-fees <number>", "Priority fees per compute unit", "100000")
+  .option(
+    "-p, --priority-fees <number>",
+    "Priority fees per compute unit",
+    "100000"
+  )
   .option("-u, --url <string>", "Custom RPC URL")
   .option("-ul, --url-local", "Use localhost RPC (default)")
   .option("-ud, --url-devnet", "Use Devnet RPC")
@@ -224,7 +242,7 @@ metadataCommand
       );
       console.log("Metadata URL uploaded successfully!");
     } catch (error) {
-      console.error("Error:", error.message);
+      console.error("Error:", error instanceof Error ? error.message : "Unknown error occurred");
       process.exit(1);
     }
   });
@@ -254,7 +272,7 @@ metadataCommand
       fs.writeFileSync(output, JSON.stringify(metadata, null, 2));
       console.log(`Metadata downloaded to ${output}`);
     } catch (error) {
-      console.error("Error:", error.message);
+      console.error("Error:", error instanceof Error ? error.message : "Unknown error occurred");
       process.exit(1);
     }
   });

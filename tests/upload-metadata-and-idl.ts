@@ -4,7 +4,8 @@ import {
   fetchIDL,
   fetchProgramMetadata,
   getAssociatedIdlAddress,
-  getAssociatedMetadataIdlAddress,
+  getAssociatedMetadataAddress,
+  getMetadataAddressBySeed,
   setAuthority,
   uploadIdlByJsonPath,
   uploadIdlUrl,
@@ -173,7 +174,7 @@ describe("Test metadata program with idl and program metadata", () => {
       false
     );
 
-    const metadataAccount = getAssociatedMetadataIdlAddress(TEST_IDL_PROGRAM);
+    const metadataAccount = getAssociatedMetadataAddress(TEST_IDL_PROGRAM);
 
     // Remove authority
     await setAuthority(metadataAccount, PublicKey.default, keypair, rpcUrl, 0);
