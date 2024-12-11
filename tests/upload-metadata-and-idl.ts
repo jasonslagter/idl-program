@@ -5,7 +5,7 @@ import {
   fetchProgramMetadata,
   getAssociatedIdlAddress,
   getAssociatedMetadataAddress,
-  getMetadataAddressBySeed,
+  METADATA_OFFSET,
   setAuthority,
   uploadIdlByJsonPath,
   uploadIdlUrl,
@@ -19,7 +19,6 @@ import { MetadataProgram } from "../target/types/metadata_program";
 
 const IDL_PATH = "./tests/testidl.json";
 const META_DATA_JSON = "./tests/metadata.json";
-const META_DATA_ACCOUNT_OFFSET = 44;
 
 const TEST_IDL_PROGRAM = new PublicKey(
   "6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A"
@@ -62,11 +61,28 @@ describe("Test metadata program with idl and program metadata", () => {
       return;
     }
 
-    const rawData = accountInfo.data.slice(META_DATA_ACCOUNT_OFFSET, META_DATA_ACCOUNT_OFFSET + idl.dataLen); // Skip metadata (44 bytes + 8 discriminator, 4 dataLen, 32 authority)
+    const rawData = accountInfo.data.slice(
+      METADATA_OFFSET,
+      METADATA_OFFSET + idl.dataLen
+    );
+
     const decompressedData = inflate(rawData);
     const decompressedUrl = Buffer.from(decompressedData).toString("utf8");
-
     console.log("Decompressed Url:", decompressedUrl);
+    const fetchedAnchorAccount = await program.account.metadataAccount.fetch(
+      idlAccount
+    );
+    const dataType = Buffer.from(fetchedAnchorAccount.dataType).toString(
+      "utf8"
+    );
+    console.log("Data type hex:", Buffer.from(dataType).toString("hex"));
+    console.log("Expected hex:", Buffer.from("meta.url").toString("hex"));
+    assert.equal(
+      dataType.split("\0")[0], // Split on null byte and take first part
+      "idl.url",
+      "idl data type should be idl.url"
+    );
+
     assert.equal(
       decompressedUrl,
       url,
@@ -93,6 +109,21 @@ describe("Test metadata program with idl and program metadata", () => {
     assert.ok(accountInfo, "IDL account should exist after initialization");
 
     const idlResult = await fetchIDL(TEST_IDL_PROGRAM, rpcUrl);
+
+    const fetchedAnchorAccount = await program.account.metadataAccount.fetch(
+      idlAccount
+    );
+
+    const dataType = Buffer.from(fetchedAnchorAccount.dataType).toString(
+      "utf8"
+    );
+    console.log("Data type hex:", Buffer.from(dataType).toString("hex"));
+    console.log("Expected hex:", Buffer.from("idl.json").toString("hex"));
+    assert.equal(
+      dataType.split("\0")[0], // Split on null byte and take first part
+      "idl.json",
+      "idl data type should be idl.json"
+    );
 
     var idlJson;
     try {

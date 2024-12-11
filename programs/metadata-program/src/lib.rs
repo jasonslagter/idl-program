@@ -21,9 +21,11 @@ pub mod metadata_program {
         NotAProgram,
         #[msg("The program account should not be a program data account")]
         ShouldBeProgramAccount,
+        #[msg("Data type is too long")]
+        DataTypeTooLong
     }
 
-    pub fn initialize(ctx: Context<Initialize>, _seed: String) -> Result<()> {      
+    pub fn initialize(ctx: Context<Initialize>, _seed: String, data_type: String) -> Result<()> {      
         msg!("Signer {:?}!", ctx.accounts.signer.key);              
         msg!("Authority {:?}!", ctx.accounts.program_data.upgrade_authority_address);              
 
@@ -69,11 +71,14 @@ pub mod metadata_program {
         }
 
         // When all is good create PDA and save authority for later upgrades.
-        ctx.accounts.pda.authority = *ctx.accounts.signer.key;
+        let account = &mut ctx.accounts.pda;
+        account.authority = *ctx.accounts.signer.key;
+        account.set_data_type(&data_type)?;
+        
         Ok(())
     }
 
-    pub fn initialize_with_signer_seed(ctx: Context<InitializeWithSignerSeed>, _seed: String) -> Result<()> {      
+    pub fn initialize_with_signer_seed(ctx: Context<InitializeWithSignerSeed>, _seed: String, data_type: String) -> Result<()> {      
         msg!("Signer {:?}!", ctx.accounts.signer.key);              
         msg!("Authority {:?}!", ctx.accounts.program_data.upgrade_authority_address);              
 
@@ -119,7 +124,9 @@ pub mod metadata_program {
         }
 
         // When all is good create PDA and save authority for later upgrades.
-        ctx.accounts.pda.authority = *ctx.accounts.signer.key;
+        let account = &mut ctx.accounts.pda;
+        account.authority = *ctx.accounts.signer.key;
+        account.set_data_type(&data_type)?;
         Ok(())
     }
 
@@ -143,8 +150,10 @@ pub mod metadata_program {
         Ok(())
     }
 
-    pub fn create_buffer(ctx: Context<CreateBuffer>) -> Result<()> {
-        ctx.accounts.buffer.authority = *ctx.accounts.authority.key;
+    pub fn create_buffer(ctx: Context<CreateBuffer>, data_type: String) -> Result<()> {
+        let buffer = &mut ctx.accounts.buffer;
+        buffer.authority = *ctx.accounts.authority.key;
+        buffer.set_data_type(&data_type)?;
         Ok(())
     }
 
@@ -163,6 +172,7 @@ pub mod metadata_program {
 
     pub fn set_buffer(ctx: Context<SetBuffer>, _seed: String) -> Result<()> {
         ctx.accounts.pda.data_len = ctx.accounts.buffer.data_len;
+        ctx.accounts.pda.set_data_type(&ctx.accounts.buffer.get_data_type())?;
 
         use MetadataUploadTrailingData;
         let buffer_len = ::std::convert::TryInto::<usize>::try_into(ctx.accounts.buffer.data_len).unwrap();
@@ -170,7 +180,6 @@ pub mod metadata_program {
         let source = &ctx.accounts.buffer.trailing_data()[..buffer_len];
         require_gte!(target.len(), buffer_len);
         target[..buffer_len].copy_from_slice(source);
-        
         Ok(())
     }
 
@@ -184,24 +193,24 @@ pub mod metadata_program {
     impl<'a, 'info: 'a> MetadataUploadTrailingData<'a> for &'a Account<'info, MetadataAccount> {
         fn trailing_data(self) -> Ref<'a, [u8]> {
             let info: &AccountInfo<'info> = self.as_ref();
-            Ref::map(info.try_borrow_data().unwrap(), |d| &d[44..])
+            Ref::map(info.try_borrow_data().unwrap(), |d| &d[(METADATA_ACCOUNT_SIZE as usize )..])
         }
         fn trailing_data_mut(self) -> RefMut<'a, [u8]> {
             let info: &AccountInfo<'info> = self.as_ref();
-            RefMut::map(info.try_borrow_mut_data().unwrap(), |d| &mut d[44..])
+            RefMut::map(info.try_borrow_mut_data().unwrap(), |d| &mut d[(METADATA_ACCOUNT_SIZE as usize )..])
         }
     }
 }
 
 #[derive(Accounts)]
-#[instruction(seed: String)]
+#[instruction(seed: String, data_type: String)]
 pub struct Initialize<'info> {
     #[account(
         init,
         seeds = [seed.as_ref(), program_id.key.as_ref()],
         bump,
         payer = signer,
-        space = 8 + 32 + 4,
+        space = METADATA_ACCOUNT_SIZE as usize,
     )]
     pub pda: Account<'info, MetadataAccount>,
     #[account(mut)]
@@ -222,7 +231,7 @@ pub struct InitializeWithSignerSeed<'info> {
         seeds = [seed.as_ref(), program_id.key.as_ref(), signer.key.as_ref()],
         bump,
         payer = signer,
-        space = 8 + 32 + 4,
+        space = METADATA_ACCOUNT_SIZE as usize,
     )]
     pub pda: Account<'info, MetadataAccount>,
     #[account(mut)]
@@ -261,9 +270,9 @@ pub struct Resize<'info> {
     pub program_id: AccountInfo<'info>,
 }
 
-
 // Accounts for creating an metadata buffer.
 #[derive(Accounts)]
+#[instruction(data_type: String)]
 pub struct CreateBuffer<'info> {
     #[account(zero)]
     pub buffer: Account<'info, MetadataAccount>,
@@ -310,8 +319,52 @@ pub struct SetBuffer<'info> {
 
 #[account]
 pub struct MetadataAccount {
-    authority: Pubkey,
-    data_len: u32,
-    // program id or seed needed? To make it easier to query the IDL by program id or seed.
-    // The rest is compressed metadata bytes.
+    pub authority: Pubkey,
+    pub data_type: [u8; 16], // 16 bytes to be flexible to what people want to use it for. 
+    pub data_len: u32,
+    // trailing data...
+}
+
+// Common data type constants
+#[constant]
+pub const DATA_TYPE_IDL_JSON: &str = "idl.json";
+#[constant]
+pub const DATA_TYPE_IDL_URL: &str = "idl.url";
+#[constant]
+pub const DATA_TYPE_META_JSON: &str = "meta.json";
+#[constant]
+pub const DATA_TYPE_META_URL: &str = "meta.url";
+// But users can also use their own types:
+// "game.stats"
+// "dao.config.v1"
+// "nft.attributes"
+// "social.profile"
+// "audited.by.json"
+
+// Size constants for composability
+pub const PUBKEY_LENGTH: u64 = 32;
+pub const U32_LENGTH: u64 = 4;
+
+#[constant]
+pub const DATA_TYPE_LENGTH: u64 = 16;
+
+#[constant]
+pub const METADATA_ACCOUNT_SIZE: u64 = 
+    PUBKEY_LENGTH +                 // authority
+    U32_LENGTH +                    // data_len
+    DATA_TYPE_LENGTH + 8;               // data_type + discriminator
+
+
+impl MetadataAccount {
+    pub fn set_data_type(&mut self, data_type: &str) -> Result<()> {
+        require!(data_type.len() <= DATA_TYPE_LENGTH as usize, MyError::DataTypeTooLong);
+        self.data_type.fill(0);  // Clear existing data
+        self.data_type[..data_type.len()].copy_from_slice(data_type.as_bytes());
+        Ok(())
+    }
+
+    pub fn get_data_type(&self) -> String {
+        let len = self.data_type.iter().position(|&x| x == 0).unwrap_or(DATA_TYPE_LENGTH as usize);
+        String::from_utf8_lossy(&self.data_type[..len]).to_string()
+    }
 }

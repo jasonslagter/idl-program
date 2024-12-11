@@ -53,7 +53,12 @@
           "signer": true
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "data_type",
+          "type": "string"
+        }
+      ]
     },
     {
       "name": "initialize",
@@ -103,6 +108,10 @@
       "args": [
         {
           "name": "_seed",
+          "type": "string"
+        },
+        {
+          "name": "data_type",
           "type": "string"
         }
       ]
@@ -159,6 +168,10 @@
       "args": [
         {
           "name": "_seed",
+          "type": "string"
+        },
+        {
+          "name": "data_type",
           "type": "string"
         }
       ]
@@ -345,6 +358,11 @@
       "code": 6003,
       "name": "ShouldBeProgramAccount",
       "msg": "The program account should not be a program data account"
+    },
+    {
+      "code": 6004,
+      "name": "DataTypeTooLong",
+      "msg": "Data type is too long"
     }
   ],
   "types": [
@@ -358,11 +376,52 @@
             "type": "pubkey"
           },
           {
+            "name": "data_type",
+            "type": {
+              "array": [
+                "u8",
+                16
+              ]
+            }
+          },
+          {
             "name": "data_len",
             "type": "u32"
           }
         ]
       }
+    }
+  ],
+  "constants": [
+    {
+      "name": "DATA_TYPE_IDL_JSON",
+      "type": "string",
+      "value": "\"idl.json\""
+    },
+    {
+      "name": "DATA_TYPE_IDL_URL",
+      "type": "string",
+      "value": "\"idl.url\""
+    },
+    {
+      "name": "DATA_TYPE_LENGTH",
+      "type": "u64",
+      "value": "16"
+    },
+    {
+      "name": "DATA_TYPE_META_JSON",
+      "type": "string",
+      "value": "\"meta.json\""
+    },
+    {
+      "name": "DATA_TYPE_META_URL",
+      "type": "string",
+      "value": "\"meta.url\""
+    },
+    {
+      "name": "METADATA_ACCOUNT_SIZE",
+      "type": "u64",
+      "value": "60"
     }
   ]
 }

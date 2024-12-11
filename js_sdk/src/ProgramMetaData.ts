@@ -5,17 +5,32 @@ import IDL from "./metadata_program.json";
 import * as anchor from "@coral-xyz/anchor";
 import { inflate, deflate } from "pako";
 
-const METADATA_OFFSET = 44;
 const CHUNK_SIZE = 900;
 const MAX_RESIZE_STEP = 10240;
 const CONFIRMATION_COMMITMENT: anchor.web3.Commitment = "confirmed";
-const DATA_LENGTH_OFFSET = 40;
 
 const METADATA_PROGRAM_ID = new PublicKey(
   "pmetaypqG6SiB47xMigYVMAkuHDWeSDXcv3zzDrJJvA"
 );
 const IDL_SEED = "idl";
 const PROGRAM_METADATA_SEED = "metadata";
+
+// Helper to get constant value from IDL
+function getConstant(name: string): string {
+  const constant = IDL.constants.find((c) => c.name === name);
+  if (!constant) {
+    throw new IDLError(`Required constant ${name} not found in IDL`);
+  }
+  return constant.value.replace(/"/g, "");
+}
+
+// Get constants from IDL
+export const DATA_TYPE_IDL_JSON = getConstant("DATA_TYPE_IDL_JSON");
+export const DATA_TYPE_IDL_URL = getConstant("DATA_TYPE_IDL_URL");
+export const DATA_TYPE_META_JSON = getConstant("DATA_TYPE_META_JSON");
+export const DATA_TYPE_META_URL = getConstant("DATA_TYPE_META_URL");
+export const METADATA_OFFSET = Number(getConstant("METADATA_ACCOUNT_SIZE"));
+export const DATA_TYPE_LENGTH = Number(getConstant("DATA_TYPE_LENGTH"));
 
 interface ConnectionConfig {
   connection: anchor.web3.Connection;
@@ -82,7 +97,8 @@ async function uploadIdlByJsonPath(
     rpcUrl,
     priorityFeesPerCU,
     IDL_SEED,
-    addSignerSeed
+    addSignerSeed,
+    DATA_TYPE_IDL_JSON
   );
 }
 
@@ -111,7 +127,8 @@ async function uploadIdlUrl(
     rpcUrl,
     priorityFeesPerCU,
     IDL_SEED,
-    addSignerSeed
+    addSignerSeed,
+    DATA_TYPE_IDL_URL
   );
 }
 
@@ -132,8 +149,14 @@ async function uploadGenericDataBySeed(
   rpcUrl: string,
   priorityFeesPerCU: number,
   seed: string,
-  addSignerSeed: boolean = false
+  addSignerSeed: boolean = false,
+  dataType: string
 ) {
+  if (dataType.length > DATA_TYPE_LENGTH) {
+    throw new IDLError(
+      `Data type too long, max length is ${DATA_TYPE_LENGTH} bytes`
+    );
+  }
   const { connection, provider, program } = setupConnection(rpcUrl, keypair);
   const metadataAccount = getMetadataAddressBySeed(
     programId,
@@ -150,7 +173,8 @@ async function uploadGenericDataBySeed(
     rpcUrl,
     priorityFeesPerCU,
     seed,
-    addSignerSeed
+    addSignerSeed,
+    dataType
   );
   console.log("Initialized metadata account");
 
@@ -159,7 +183,8 @@ async function uploadGenericDataBySeed(
     buffer,
     keypair,
     rpcUrl,
-    priorityFeesPerCU
+    priorityFeesPerCU,
+    dataType
   );
   if (!bufferAddress) {
     throw new IDLError("Was not able to create buffer");
@@ -196,7 +221,8 @@ async function initializeMetaDataBySeed(
   rpcUrl: string,
   priorityFeesPerCU: number,
   seed: string,
-  addSignerSeed: boolean = false
+  addSignerSeed: boolean = false,
+  dataType: string
 ) {
   const connection = new anchor.web3.Connection(rpcUrl, "confirmed");
   const provider = new anchor.AnchorProvider(
@@ -232,7 +258,7 @@ async function initializeMetaDataBySeed(
     var initializePdaInstruction;
     if (addSignerSeed) {
       initializePdaInstruction = await program.methods
-        .initializeWithSignerSeed(seed)
+        .initializeWithSignerSeed(seed, dataType)
         .accountsPartial({
           pda: metadataPdaAddress,
           programId: programId,
@@ -241,7 +267,7 @@ async function initializeMetaDataBySeed(
         .instruction();
     } else {
       initializePdaInstruction = await program.methods
-        .initialize(seed)
+        .initialize(seed, dataType)
         .accountsPartial({
           pda: metadataPdaAddress,
           programId: programId,
@@ -318,7 +344,8 @@ async function createBuffer(
   buffer: Buffer,
   keypair: Keypair,
   rpcUrl: string,
-  priorityFeesPerCU: number
+  priorityFeesPerCU: number,
+  dataType: string
 ): Promise<Keypair | null> {
   const connection = new anchor.web3.Connection(rpcUrl, "confirmed");
   const provider = new anchor.AnchorProvider(
@@ -330,7 +357,7 @@ async function createBuffer(
   const program = new anchor.Program(IDL as MetadataProgram, provider);
 
   const idlBytes = deflate(new Uint8Array(buffer)); // Compress the IDL JSON
-  const bufferSize = idlBytes.length + METADATA_OFFSET; // 44 bytes for discriminator, authority, and data_len
+  const bufferSize = idlBytes.length + METADATA_OFFSET;
   let bufferKeypair = new Keypair();
 
   let createAccountInstruction = anchor.web3.SystemProgram.createAccount({
@@ -342,7 +369,7 @@ async function createBuffer(
   });
 
   const createBufferInstruction = await program.methods
-    .createBuffer()
+    .createBuffer(dataType)
     .accountsPartial({
       buffer: bufferKeypair.publicKey,
     })
@@ -567,57 +594,58 @@ async function fetchIDL(
   // If we get the IDL account we can not access the additional data bytes at
   // the end so we need to use getaccount info and manually cut of the front.
   // const idl = await program.account.idlAccount.fetch(idlAccount);
-  // console.log("IDL", idl); We could also use the account info to get the IDL
-  // but that would be two calls.
+  // We could also use the idlAccount.fetch to get the IDL account but that would be two calls
 
   if (!accountInfo) {
     throw new Error(`IDL account not found at ${idlAccount.toBase58()}`);
   }
 
-  // In the account we have the anchor descriminator 8 + authority 32 + data_len 4 + data
+  // Get the data type from the account (it's stored after the discriminator and authority)
+  const dataType = new TextDecoder().decode(
+    accountInfo.data.slice(40, 40 + DATA_TYPE_LENGTH).filter((x) => x !== 0)
+  );
+
+  console.log("Data type", dataType);
+
+  // Get the data length and content
   const dataLenBytes = accountInfo.data.slice(
     METADATA_OFFSET - 4,
     METADATA_OFFSET
-  ); // `data_len` starts at offset 40
-  const dataLength = new DataView(dataLenBytes.buffer).getUint32(0); // Little-endian
+  );
+  console.log("dataLenBytes", dataLenBytes);
 
+  const dataLength = new DataView(dataLenBytes.buffer).getUint32(0);
   const compressedData = accountInfo.data.slice(
     METADATA_OFFSET,
     METADATA_OFFSET + dataLength
-  ); // Skip metadata (44 bytes)
-
-  // Decompress the data
+  );
   const decompressedData = inflate(compressedData);
+  const content = new TextDecoder("utf-8").decode(decompressedData);
 
-  // Convert Uint8Array to string
-  const idlString = new TextDecoder("utf-8").decode(decompressedData);
-  // Check if the idlString is a URL
-  try {
-    const url = new URL(idlString);
-    // If it's a valid URL, fetch the IDL from it
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch IDL from URL: ${response.statusText}`);
-    }
-    const idlFromUrl = await response.text();
-    // Validate that the fetched IDL is valid JSON
+  if (dataType === DATA_TYPE_IDL_URL) {
+    // Handle URL type
     try {
-      JSON.parse(idlFromUrl);
-    } catch (error) {
-      throw new Error(`Invalid IDL JSON format from URL: ${error}`);
-    }
-    return idlFromUrl;
-  } catch (error) {
-    if (error instanceof TypeError && error.message.includes("Invalid URL")) {
-      // If not a URL, validate the original IDL string as JSON
-      try {
-        JSON.parse(idlString);
-      } catch (error) {
-        throw new Error(`Invalid IDL JSON format: ${error}`);
+      const response = await fetch(content.trim());
+      if (!response.ok) {
+        throw new Error(`Failed to fetch IDL from URL: ${response.statusText}`);
       }
-      return idlString;
+      const idlFromUrl = await response.text();
+      // Validate JSON format
+      JSON.parse(idlFromUrl); // Will throw if invalid
+      return idlFromUrl;
+    } catch (error) {
+      throw new Error(`Failed to fetch or parse IDL from URL: `);
     }
-    throw error;
+  } else if (dataType === DATA_TYPE_IDL_JSON) {
+    // Handle JSON type
+    try {
+      JSON.parse(content); // Validate JSON format
+      return content;
+    } catch (error) {
+      throw new Error(`Invalid IDL JSON format: ${error}`);
+    }
+  } else {
+    throw new Error(`Unknown data type: ${dataType}`);
   }
 }
 
@@ -709,7 +737,8 @@ async function uploadProgramMetadata(
     rpcUrl,
     priorityFeesPerCU,
     PROGRAM_METADATA_SEED,
-    addSignerSeed
+    addSignerSeed,
+    DATA_TYPE_META_JSON
   );
 }
 
@@ -743,37 +772,49 @@ async function fetchProgramMetadata(
     );
   }
 
+  // Get the data type from the account
+  const dataType = new TextDecoder().decode(
+    accountInfo.data.slice(40, 40 + DATA_TYPE_LENGTH).filter((x) => x !== 0)
+  );
+
+  // Get the data length and content
   const dataLenBytes = accountInfo.data.slice(
-    DATA_LENGTH_OFFSET,
+    METADATA_OFFSET - 4,
     METADATA_OFFSET
   );
   const dataLength = new DataView(dataLenBytes.buffer).getUint32(0);
-
   const compressedData = accountInfo.data.slice(
     METADATA_OFFSET,
     METADATA_OFFSET + dataLength
   );
-
   const decompressedData = inflate(compressedData);
-  const metadataString = new TextDecoder("utf-8").decode(decompressedData);
+  const content = new TextDecoder("utf-8").decode(decompressedData);
 
-  try {
-    console.log("Metadata string", metadataString);
-
-    return JSON.parse(metadataString) as ProgramMetaData;
-  } catch (error) {
-    // If metadata can't be parsed, try treating it as a URL and fetch from there
+  if (dataType === DATA_TYPE_META_URL) {
+    // Handle URL type
     try {
-      const response = await fetch(metadataString.trim());
+      const response = await fetch(content.trim());
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        throw new Error(
+          `Failed to fetch metadata from URL: ${response.statusText}`
+        );
       }
-      const jsonData = await response.json();
-      return jsonData as ProgramMetaData;
-    } catch (fetchError) {
-      console.error("Failed to fetch metadata from URL:", fetchError);
+      const metadata = await response.json();
+      return metadata as ProgramMetaData;
+    } catch (error) {
+      throw new IDLError(
+        `Failed to fetch or parse metadata from URL: ${error}`
+      );
     }
-    throw new IDLError("Failed to parse program metadata");
+  } else if (dataType === DATA_TYPE_META_JSON) {
+    // Handle JSON type
+    try {
+      return JSON.parse(content) as ProgramMetaData;
+    } catch (error) {
+      throw new IDLError(`Invalid metadata JSON format: ${error}`);
+    }
+  } else {
+    throw new IDLError(`Unknown data type: ${dataType}`);
   }
 }
 
@@ -868,7 +909,8 @@ async function uploadProgramMetadataByUrl(
       rpcUrl,
       priorityFeesPerCU,
       PROGRAM_METADATA_SEED,
-      addSignerSeed
+      addSignerSeed,
+      DATA_TYPE_META_URL
     );
   } catch (error) {
     if (error instanceof IDLError) {
