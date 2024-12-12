@@ -9,16 +9,7 @@
   "instructions": [
     {
       "name": "close_buffer",
-      "discriminator": [
-        46,
-        114,
-        179,
-        58,
-        57,
-        45,
-        194,
-        172
-      ],
+      "discriminator": [46, 114, 179, 58, 57, 45, 194, 172],
       "accounts": [
         {
           "name": "buffer",
@@ -33,16 +24,7 @@
     },
     {
       "name": "close_metadata_account",
-      "discriminator": [
-        13,
-        249,
-        248,
-        180,
-        165,
-        115,
-        190,
-        161
-      ],
+      "discriminator": [13, 249, 248, 180, 165, 115, 190, 161],
       "accounts": [
         {
           "name": "metadata_account",
@@ -57,16 +39,7 @@
     },
     {
       "name": "create_buffer",
-      "discriminator": [
-        175,
-        76,
-        101,
-        74,
-        224,
-        249,
-        104,
-        170
-      ],
+      "discriminator": [175, 76, 101, 74, 224, 249, 104, 170],
       "accounts": [
         {
           "name": "buffer",
@@ -86,16 +59,7 @@
     },
     {
       "name": "initialize",
-      "discriminator": [
-        175,
-        175,
-        109,
-        31,
-        13,
-        152,
-        155,
-        237
-      ],
+      "discriminator": [175, 175, 109, 31, 13, 152, 155, 237],
       "accounts": [
         {
           "name": "pda",
@@ -131,27 +95,18 @@
       ],
       "args": [
         {
-          "name": "_seed",
+          "name": "data_type",
           "type": "string"
         },
         {
-          "name": "data_type",
+          "name": "_seed",
           "type": "string"
         }
       ]
     },
     {
       "name": "initialize_with_signer_seed",
-      "discriminator": [
-        55,
-        45,
-        87,
-        223,
-        169,
-        179,
-        103,
-        71
-      ],
+      "discriminator": [55, 45, 87, 223, 169, 179, 103, 71],
       "accounts": [
         {
           "name": "pda",
@@ -191,27 +146,18 @@
       ],
       "args": [
         {
-          "name": "_seed",
+          "name": "data_type",
           "type": "string"
         },
         {
-          "name": "data_type",
+          "name": "_seed",
           "type": "string"
         }
       ]
     },
     {
       "name": "resize",
-      "discriminator": [
-        74,
-        27,
-        74,
-        155,
-        56,
-        134,
-        175,
-        125
-      ],
+      "discriminator": [74, 27, 74, 155, 56, 134, 175, 125],
       "accounts": [
         {
           "name": "pda",
@@ -234,25 +180,12 @@
         {
           "name": "_len",
           "type": "u16"
-        },
-        {
-          "name": "_seed",
-          "type": "string"
         }
       ]
     },
     {
       "name": "set_authority",
-      "discriminator": [
-        133,
-        250,
-        37,
-        21,
-        110,
-        163,
-        26,
-        121
-      ],
+      "discriminator": [133, 250, 37, 21, 110, 163, 26, 121],
       "accounts": [
         {
           "name": "pda",
@@ -261,9 +194,7 @@
         {
           "name": "authority",
           "signer": true,
-          "relations": [
-            "pda"
-          ]
+          "relations": ["pda"]
         }
       ],
       "args": [
@@ -275,16 +206,7 @@
     },
     {
       "name": "set_buffer",
-      "discriminator": [
-        13,
-        212,
-        241,
-        0,
-        78,
-        93,
-        17,
-        51
-      ],
+      "discriminator": [13, 212, 241, 0, 78, 93, 17, 51],
       "accounts": [
         {
           "name": "buffer",
@@ -297,33 +219,17 @@
         {
           "name": "authority",
           "signer": true,
-          "relations": [
-            "pda"
-          ]
+          "relations": ["pda"]
         },
         {
           "name": "program_id"
         }
       ],
-      "args": [
-        {
-          "name": "_seed",
-          "type": "string"
-        }
-      ]
+      "args": []
     },
     {
       "name": "write_buffer",
-      "discriminator": [
-        164,
-        194,
-        69,
-        154,
-        75,
-        169,
-        228,
-        85
-      ],
+      "discriminator": [164, 194, 69, 154, 75, 169, 228, 85],
       "accounts": [
         {
           "name": "buffer",
@@ -350,16 +256,7 @@
   "accounts": [
     {
       "name": "MetadataAccount",
-      "discriminator": [
-        32,
-        224,
-        226,
-        224,
-        77,
-        64,
-        109,
-        234
-      ]
+      "discriminator": [32, 224, 226, 224, 77, 64, 109, 234]
     }
   ],
   "errors": [
@@ -402,10 +299,7 @@
           {
             "name": "data_type",
             "type": {
-              "array": [
-                "u8",
-                16
-              ]
+              "array": ["u8", 16]
             }
           },
           {

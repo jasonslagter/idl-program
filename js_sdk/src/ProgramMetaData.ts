@@ -257,7 +257,7 @@ async function initializeMetaDataBySeed(
     var initializePdaInstruction;
     if (addSignerSeed) {
       initializePdaInstruction = await program.methods
-        .initializeWithSignerSeed(seed, dataType)
+        .initializeWithSignerSeed(dataType, seed)
         .accountsPartial({
           pda: metadataPdaAddress,
           programId: programId,
@@ -266,7 +266,7 @@ async function initializeMetaDataBySeed(
         .instruction();
     } else {
       initializePdaInstruction = await program.methods
-        .initialize(seed, dataType)
+        .initialize(dataType, seed)
         .accountsPartial({
           pda: metadataPdaAddress,
           programId: programId,
@@ -486,7 +486,7 @@ async function setBuffer(
   // Add resize instructions
   if (bufferAccountSize < metadataAccountSize) {
     const resizeInstruction = await program.methods
-      .resize(bufferAccountSize, seed)
+      .resize(bufferAccountSize)
       .accountsPartial({
         pda: metadataAccount,
         programId: programId,
@@ -502,7 +502,7 @@ async function setBuffer(
       const chunkSize = Math.min(MAX_RESIZE_STEP, leftOverToResize);
       metadataAccountSize += chunkSize;
       const resizeInstruction = await program.methods
-        .resize(metadataAccountSize, seed)
+        .resize(metadataAccountSize)
         .accountsPartial({
           pda: metadataAccount,
           programId: programId,
@@ -518,7 +518,7 @@ async function setBuffer(
   }
 
   const setBufferInstruction = await program.methods
-    .setBuffer(seed)
+    .setBuffer()
     .accountsPartial({
       pda: metadataAccount,
       buffer: bufferAddress,

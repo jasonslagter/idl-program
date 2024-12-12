@@ -25,7 +25,7 @@ pub mod metadata_program {
         DataTypeTooLong
     }
 
-    pub fn initialize(ctx: Context<Initialize>, _seed: String, data_type: String) -> Result<()> {      
+    pub fn initialize(ctx: Context<Initialize>, data_type: String, _seed: String) -> Result<()> {      
         msg!("Signer {:?}!", ctx.accounts.signer.key);              
         msg!("Authority {:?}!", ctx.accounts.program_data.upgrade_authority_address);              
 
@@ -78,7 +78,7 @@ pub mod metadata_program {
         Ok(())
     }
 
-    pub fn initialize_with_signer_seed(ctx: Context<InitializeWithSignerSeed>, _seed: String, data_type: String) -> Result<()> {      
+    pub fn initialize_with_signer_seed(ctx: Context<InitializeWithSignerSeed>, data_type: String, _seed: String) -> Result<()> {      
         msg!("Signer {:?}!", ctx.accounts.signer.key);              
         msg!("Authority {:?}!", ctx.accounts.program_data.upgrade_authority_address);              
 
@@ -165,7 +165,7 @@ pub mod metadata_program {
         Ok(())
     }
 
-    pub fn resize(_ctx: Context<Resize>, _len: u16, _seed: String) -> Result<()> {
+    pub fn resize(_ctx: Context<Resize>, _len: u16) -> Result<()> {
         Ok(())
     }
 
@@ -174,7 +174,7 @@ pub mod metadata_program {
         Ok(())
     }
 
-    pub fn set_buffer(ctx: Context<SetBuffer>, _seed: String) -> Result<()> {
+    pub fn set_buffer(ctx: Context<SetBuffer>) -> Result<()> {
         ctx.accounts.pda.data_len = ctx.accounts.buffer.data_len;
         ctx.accounts.pda.set_data_type(&ctx.accounts.buffer.get_data_type())?;
 
@@ -207,7 +207,7 @@ pub mod metadata_program {
 }
 
 #[derive(Accounts)]
-#[instruction(seed: String, data_type: String)]
+#[instruction(data_type: String, seed: String)]
 pub struct Initialize<'info> {
     #[account(
         init,
@@ -228,7 +228,7 @@ pub struct Initialize<'info> {
 }
 
 #[derive(Accounts)]
-#[instruction(seed: String)]
+#[instruction(data_type: String, seed: String)]
 pub struct InitializeWithSignerSeed<'info> {
     #[account(
         init,
@@ -257,7 +257,7 @@ pub struct MetadataAccounts<'info> {
 
 #[derive(Accounts)]
 // Seed can be dynamic. For IDL use "idl" as seed. For metadata use "metadata" as seed.
-#[instruction(len: u16, seed: String)]
+#[instruction(len: u16)]
 pub struct Resize<'info> {
     #[account(
         mut,
@@ -313,7 +313,6 @@ pub struct WriteBuffer<'info> {
 
 // Accounts for upgrading the canonical MetadataAccount with the buffer.
 #[derive(Accounts)]
-#[instruction(seed: String)]
 pub struct SetBuffer<'info> {
     // The buffer with the new metadata.
     #[account(mut, constraint = buffer.authority == pda.authority)]
