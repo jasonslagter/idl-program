@@ -8,31 +8,36 @@ The trick is that only the program upgrade authority can create the canonical PD
 
 Also instead of the whole IDL or metadata json people can choose to just upload a URL to the IDL instead to save on chain space and make updates easy.
 
+The the moment the IDL and Metadata are not yet merged into Solana explorer but here is a preview build that can show you how it looks like: 
+https://explorer-dun.vercel.app/
+
 ## CLI Usage
 
 ### Installation
 
+There is no need to install the CLI you can just run it with npx:
+
 ```bash
-npm install -g solana-program-metadata
+npx solana-program-metadata
 ```
 
 ### Commands
 
 #### IDL Commands
 
-Upload IDL from a JSON file:
+Upload IDL from a JSON file. This will write the IDL compressed to the metadata account:
 
 ```bash
-program-metadata idl upload <file> <program-id> \
+npx solana-program-metadata idl upload <file> <program-id> \
   [-k <keypair-path>] \
   [-u <rpc-url>] \
   [-p <priority-fees>]
 ```
 
-Upload IDL from URL:
+Upload IDL from URL. This will write a URL to a json file to the metadata account:
 
 ```bash
-program-metadata idl upload-url <url> <program-id> \
+npx solana-program-metadata idl upload-url <url> <program-id> \
   [-k <keypair-path>] \
   [-u <rpc-url>] \
   [-p <priority-fees>]
@@ -41,7 +46,7 @@ program-metadata idl upload-url <url> <program-id> \
 Download IDL to file:
 
 ```bash
-program-metadata idl download <program-id> [output-file] \
+npx solana-program-metadata idl download <program-id> [output-file] \
   [-u <rpc-url>]
 ```
 
@@ -78,7 +83,7 @@ You can also upload metadata for you program. This is the recommended format of 
 Upload metadata from JSON file:
 
 ```bash
-program-metadata metadata upload <file> <program-id> \
+npx solana-program-metadata metadata upload <file> <program-id> \
   [-k <keypair-path>] \
   [-u <rpc-url>] \
   [-p <priority-fees>]
@@ -87,7 +92,7 @@ program-metadata metadata upload <file> <program-id> \
 Upload metadata from URL:
 
 ```bash
-program-metadata metadata upload-url <url> <program-id> \
+npx solana-program-metadata metadata upload-url <url> <program-id> \
   [-k <keypair-path>] \
   [-u <rpc-url>] \
   [-p <priority-fees>]
@@ -96,7 +101,7 @@ program-metadata metadata upload-url <url> <program-id> \
 Download metadata to file:
 
 ```bash
-program-metadata metadata download <program-id> [output-file] \
+npx solana-program-metadata metadata download <program-id> [output-file] \
   [-u <rpc-url>]
 ```
 
@@ -117,31 +122,31 @@ program-metadata metadata download <program-id> [output-file] \
 
 ```bash
 # Upload IDL using default keypair
-program-metadata idl upload ./target/idl/my_program.json 6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A
+npx solana-program-metadata idl upload ./target/idl/my_program.json 6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A
 
 # Upload metadata with custom keypair
-program-metadata metadata upload ./metadata.json 6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A \
+npx solana-program-metadata metadata upload ./metadata.json 6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A \
   -k ./my-keypair.json \
   -ud
 
 # Upload metadata with non-associated PDA (using signer's pubkey as additional seed)
-program-metadata metadata upload-url https://example.com/metadata.json 6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A \
+npx solana-program-metadata metadata upload-url https://example.com/metadata.json 6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A \
   --add-signer-seed
 
 # Download associated metadata (default)
-program-metadata metadata download 6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A ./my-metadata.json
+npx solana-program-metadata metadata download 6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A ./my-metadata.json
 
 # Download non-associated metadata (requires signer's pubkey)
-program-metadata metadata download 6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A ./my-metadata.json \
+npx solana-program-metadata metadata download 6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A ./my-metadata.json \
   -s tes5FTVnmJAeq2Nb1Uv15pqiRuPdCHmCSThVbUNfe37
 
-program-metadata idl upload tests/testidl.json 6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A \
+npx solana-program-metadata idl upload tests/testidl.json 6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A \
   -k tests/wallet2.json -ud
 
-program-metadata metadata upload tests/metadata.json 6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A \
+npx solana-program-metadata metadata upload tests/metadata.json 6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A \
   -k tests/wallet2.json -ud
 
-program-metadata metadata upload-url https://raw.githubusercontent.com/solana-developers/idl-program/refs/heads/main/tests/metadata.json 6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A \
+npx solana-program-metadata metadata upload-url https://raw.githubusercontent.com/solana-developers/idl-program/refs/heads/main/tests/metadata.json 6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A \
   -k tests/wallet2.json -ud
 
 # Local development examples

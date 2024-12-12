@@ -12,27 +12,29 @@ Also instead of the whole IDL or metadata json people can choose to just upload 
 
 ### Installation
 
+There is no need to install the CLI you can just run it with npx:
+
 ```bash
-npm install -g solana-program-metadata
+npx solana-program-metadata
 ```
 
 ### Commands
 
 #### IDL Commands
 
-Upload IDL from a JSON file:
+Upload IDL from a JSON file. This will write the IDL compressed to the metadata account:
 
 ```bash
-program-metadata idl upload <file> <program-id> \
+npx solana-program-metadata idl upload <file> <program-id> \
   [-k <keypair-path>] \
   [-u <rpc-url>] \
   [-p <priority-fees>]
 ```
 
-Upload IDL from URL:
+Upload IDL from URL. This will write a URL to a json file to the metadata account:
 
 ```bash
-program-metadata idl upload-url <url> <program-id> \
+npx solana-program-metadata idl upload-url <url> <program-id> \
   [-k <keypair-path>] \
   [-u <rpc-url>] \
   [-p <priority-fees>]
@@ -41,7 +43,7 @@ program-metadata idl upload-url <url> <program-id> \
 Download IDL to file:
 
 ```bash
-program-metadata idl download <program-id> [output-file] \
+npx solana-program-metadata idl download <program-id> [output-file] \
   [-u <rpc-url>]
 ```
 
@@ -78,7 +80,7 @@ You can also upload metadata for you program. This is the recommended format of 
 Upload metadata from JSON file:
 
 ```bash
-program-metadata metadata upload <file> <program-id> \
+npx solana-program-metadata metadata upload <file> <program-id> \
   [-k <keypair-path>] \
   [-u <rpc-url>] \
   [-p <priority-fees>]
@@ -87,7 +89,7 @@ program-metadata metadata upload <file> <program-id> \
 Upload metadata from URL:
 
 ```bash
-program-metadata metadata upload-url <url> <program-id> \
+npx solana-program-metadata metadata upload-url <url> <program-id> \
   [-k <keypair-path>] \
   [-u <rpc-url>] \
   [-p <priority-fees>]
@@ -96,7 +98,7 @@ program-metadata metadata upload-url <url> <program-id> \
 Download metadata to file:
 
 ```bash
-program-metadata metadata download <program-id> [output-file] \
+npx solana-program-metadata metadata download <program-id> [output-file] \
   [-u <rpc-url>]
 ```
 

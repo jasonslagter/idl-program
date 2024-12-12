@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { Command } from "commander";
-import { Keypair, PublicKey } from "@solana/web3.js";
+import { Keypair, PublicKey, Connection } from "@solana/web3.js";
 import {
   uploadProgramMetadataByJsonPath,
   uploadIdlByJsonPath,
@@ -13,10 +13,18 @@ import {
 import fs from "fs";
 import os from "os";
 import path from "path";
+import { decodeUpgradeableLoaderState } from "@coral-xyz/anchor/dist/cjs/utils/registry";
 
 const LOCALHOST_URL = "http://127.0.0.1:8899";
 const DEVNET_URL = "https://api.devnet.solana.com";
 const MAINNET_URL = "https://api.mainnet-beta.solana.com";
+
+const BPF_LOADER_UPGRADEABLE = "BPFLoaderUpgradeab1e11111111111111111111111";
+const BPF_LOADER_2 = "BPFLoader2111111111111111111111111111111111";
+const BPF_LOADER = "BPFLoader1111111111111111111111111111111111";
+
+const AUTHORITY_WARNING_MESSAGE =
+  "\x1b[33mWarning: The selected keypair is not the program's authority. Only the authority can upload the associated metadta for a program. You can however use the flag -a to add the signer's public key as additional seed. Note: Like that you need to know that seed to find the PDA later. \x1b[0m";
 
 const program = new Command();
 
@@ -29,6 +37,73 @@ program
 const idlCommand = program
   .command("idl")
   .description("IDL management commands");
+
+async function checkProgramAuthority(
+  programId: PublicKey,
+  authority: PublicKey,
+  rpcUrl: string
+): Promise<boolean> {
+  try {
+    const connection = new Connection(rpcUrl);
+    const programAccount = await connection.getParsedAccountInfo(programId);
+
+    console.log("Program Loader: ", programAccount.value?.owner.toBase58());
+
+    if (!programAccount.value) {
+      throw new Error("Program account not found");
+    }
+
+    // Check if the account is actually a program
+    if (!programAccount.value.executable) {
+      throw new Error("Account is not a program");
+    }
+
+    const programOwner = programAccount.value.owner;
+
+    // For BPFLoaderUpgradeable programs, derive the program data account
+    if (programOwner.equals(new PublicKey(BPF_LOADER_UPGRADEABLE))) {
+      const [programDataAddress] = PublicKey.findProgramAddressSync(
+        [programId.toBuffer()],
+        new PublicKey(BPF_LOADER_UPGRADEABLE)
+      );
+
+      const programDataAccount = await connection.getAccountInfo(
+        programDataAddress
+      );
+      if (!programDataAccount) {
+        throw new Error("Program data account not found");
+      }
+
+      const programData = decodeUpgradeableLoaderState(programDataAccount.data);
+      console.log(
+        `Program authority: ${programData?.programData?.upgradeAuthorityAddress?.toBase58()} Provided authority: ${authority.toBase58()}`
+      );
+
+      if (programData?.programData?.upgradeAuthorityAddress) {
+        return programData.programData.upgradeAuthorityAddress.equals(
+          authority
+        );
+      }
+    }
+
+    // For BPFLoader2 programs, check direct ownership
+    if (programOwner.equals(new PublicKey(BPF_LOADER_2))) {
+      // BPFLoader2 programs don't store authority if they're not upgradeable
+      return false;
+    }
+
+    // For original BPFLoader programs, check direct ownership
+    if (programOwner.equals(new PublicKey(BPF_LOADER))) {
+      // Original BPFLoader programs don't store authority
+      return false;
+    }
+
+    return false;
+  } catch (error) {
+    console.error("Error checking program authority:", error);
+    return false;
+  }
+}
 
 idlCommand
   .command("upload <file> <program-id>")
@@ -58,6 +133,17 @@ idlCommand
             )
           )
         : loadDefaultKeypair();
+
+      const isAuthority = await checkProgramAuthority(
+        new PublicKey(programId),
+        keypair.publicKey,
+        rpcUrl
+      );
+
+      if (!isAuthority) {
+        console.warn(AUTHORITY_WARNING_MESSAGE);
+        return;
+      }
 
       await uploadIdlByJsonPath(
         file,
@@ -116,7 +202,10 @@ idlCommand
       );
       console.log("IDL URL uploaded successfully!");
     } catch (error) {
-      console.error("Error:", error instanceof Error ? error.message : "Unknown error occurred");
+      console.error(
+        "Error:",
+        error instanceof Error ? error.message : "Unknown error occurred"
+      );
       process.exit(1);
     }
   });
@@ -149,7 +238,10 @@ idlCommand
       fs.writeFileSync(output, idl ?? "");
       console.log(`IDL downloaded to ${output}`);
     } catch (error) {
-      console.error("Error:", error instanceof Error ? error.message : "Unknown error occurred");
+      console.error(
+        "Error:",
+        error instanceof Error ? error.message : "Unknown error occurred"
+      );
       process.exit(1);
     }
   });
@@ -188,6 +280,19 @@ metadataCommand
           )
         : loadDefaultKeypair();
 
+      const isAuthority = await checkProgramAuthority(
+        new PublicKey(programId),
+        keypair.publicKey,
+        rpcUrl
+      );
+
+      if (!isAuthority) {
+        console.warn(
+          "\x1b[33mWarning: The selected keypair is not the program's authority\x1b[0m"
+        );
+        return;
+      }
+
       await uploadProgramMetadataByJsonPath(
         file,
         new PublicKey(programId),
@@ -198,7 +303,10 @@ metadataCommand
       );
       console.log("Metadata uploaded successfully!");
     } catch (error) {
-      console.error("Error:", error instanceof Error ? error.message : "Unknown error occurred");
+      console.error(
+        "Error:",
+        error instanceof Error ? error.message : "Unknown error occurred"
+      );
       process.exit(1);
     }
   });
@@ -242,7 +350,10 @@ metadataCommand
       );
       console.log("Metadata URL uploaded successfully!");
     } catch (error) {
-      console.error("Error:", error instanceof Error ? error.message : "Unknown error occurred");
+      console.error(
+        "Error:",
+        error instanceof Error ? error.message : "Unknown error occurred"
+      );
       process.exit(1);
     }
   });
@@ -272,7 +383,10 @@ metadataCommand
       fs.writeFileSync(output, JSON.stringify(metadata, null, 2));
       console.log(`Metadata downloaded to ${output}`);
     } catch (error) {
-      console.error("Error:", error instanceof Error ? error.message : "Unknown error occurred");
+      console.error(
+        "Error:",
+        error instanceof Error ? error.message : "Unknown error occurred"
+      );
       process.exit(1);
     }
   });

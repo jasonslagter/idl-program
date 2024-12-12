@@ -157,7 +157,6 @@ async function uploadGenericDataBySeed(
       `Data type too long, max length is ${DATA_TYPE_LENGTH} bytes`
     );
   }
-  const { connection, provider, program } = setupConnection(rpcUrl, keypair);
   const metadataAccount = getMetadataAddressBySeed(
     programId,
     seed,
