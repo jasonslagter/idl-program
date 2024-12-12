@@ -29,6 +29,21 @@ export type MetadataProgram = {
       args: [];
     },
     {
+      name: "closeMetadataAccount";
+      discriminator: [13, 249, 248, 180, 165, 115, 190, 161];
+      accounts: [
+        {
+          name: "metadataAccount";
+          writable: true;
+        },
+        {
+          name: "authority";
+          signer: true;
+        }
+      ];
+      args: [];
+    },
+    {
       name: "createBuffer";
       discriminator: [175, 76, 101, 74, 224, 249, 104, 170];
       accounts: [

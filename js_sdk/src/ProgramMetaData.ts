@@ -1,4 +1,4 @@
-import { Keypair, PublicKey } from "@solana/web3.js";
+import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 import fs from "fs";
 import { MetadataProgram } from "./types/metadata_program";
 import IDL from "./metadata_program.json";
@@ -922,6 +922,47 @@ async function uploadProgramMetadataByUrl(
     // Fallback for unknown error types
     throw new IDLError("Failed to process metadata from URL: Unknown error");
   }
+}
+
+export async function closeProgramMetadata(
+  programId: PublicKey,
+  authority: Keypair,
+  rpcUrl: string,
+  seed: string,
+  priorityFees: number = 100000,
+  additionalSignerSeed?: boolean
+): Promise<void> {
+  const { connection, provider, program } = setupConnection(rpcUrl, authority);
+
+  // Find the metadata account PDA
+  const metadataAccount = getMetadataAddressBySeed(
+    programId,
+    seed,
+    additionalSignerSeed ? authority.publicKey : undefined
+  );
+
+  const closeInstruction = await program.methods
+    .closeMetadataAccount()
+    .accountsPartial({
+      metadataAccount: metadataAccount,
+      authority: authority.publicKey,
+    })
+    .instruction();
+
+  const tx = await createTransaction(
+    connection,
+    authority.publicKey,
+    priorityFees
+  );
+
+  tx.add(closeInstruction);
+  provider.wallet.signTransaction(tx);
+
+  await withRetry(async () => {
+    const signature = await connection.sendRawTransaction(tx.serialize());
+    await connection.confirmTransaction(signature, "confirmed");
+    console.log("Close metadata signature", signature);
+  });
 }
 
 export {

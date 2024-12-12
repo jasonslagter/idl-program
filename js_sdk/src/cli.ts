@@ -9,6 +9,7 @@ import {
   uploadProgramMetadataByUrl,
   fetchIDL,
   fetchProgramMetadata,
+  closeProgramMetadata,
 } from "./ProgramMetaData";
 import fs from "fs";
 import os from "os";
@@ -120,7 +121,7 @@ idlCommand
   .option("-um, --url-mainnet", "Use Mainnet RPC")
   .option(
     "-a, --add-signer-seed",
-    "Add signer's public key as additional seed",
+    "Add signer's public key as additional seed. This will create a non associated metadata account. ",
     false
   )
   .action(async (file, programId, options) => {
@@ -178,7 +179,7 @@ idlCommand
   .option("-um, --url-mainnet", "Use Mainnet RPC")
   .option(
     "-a, --add-signer-seed",
-    "Add signer's public key as additional seed",
+    "Add signer's public key as additional seed. This will create a non associated metadata account. ",
     false
   )
   .action(async (url, programId, options) => {
@@ -266,7 +267,7 @@ metadataCommand
   .option("-um, --url-mainnet", "Use Mainnet RPC")
   .option(
     "-a, --add-signer-seed",
-    "Add signer's public key as additional seed",
+    "Add signer's public key as additional seed. This will create a non associated metadata account. ",
     false
   )
   .action(async (file, programId, options) => {
@@ -326,7 +327,7 @@ metadataCommand
   .option("-um, --url-mainnet", "Use Mainnet RPC")
   .option(
     "-a, --add-signer-seed",
-    "Add signer's public key as additional seed",
+    "Add signer's public key as additional seed. This will create a non associated metadata account. ",
     false
   )
   .action(async (url, programId, options) => {
@@ -382,6 +383,68 @@ metadataCommand
       );
       fs.writeFileSync(output, JSON.stringify(metadata, null, 2));
       console.log(`Metadata downloaded to ${output}`);
+    } catch (error) {
+      console.error(
+        "Error:",
+        error instanceof Error ? error.message : "Unknown error occurred"
+      );
+      process.exit(1);
+    }
+  });
+
+metadataCommand
+  .command("close <program-id>")
+  .description("Close metadata account and recover rent")
+  .option("-k, --keypair <path>", "Path to keypair file")
+  .option(
+    "-p, --priority-fees <number>",
+    "Priority fees per compute unit",
+    "100000"
+  )
+  .option("-u, --url <string>", "Custom RPC URL")
+  .option("-ul, --url-local", "Use localhost RPC (default)")
+  .option("-ud, --url-devnet", "Use Devnet RPC")
+  .option("-um, --url-mainnet", "Use Mainnet RPC")
+  .requiredOption(
+    "-s, --seed <string>",
+    "Seed for the account to close (metadata or idl)"
+  )
+  .option(
+    "-a, --add-signer-seed",
+    "Add signer's public key as additional seed. This will create a non associated metadata account. ",
+    false
+  )
+  .action(async (programId, options) => {
+    try {
+      const rpcUrl = getRpcUrl(options);
+      const keypair = options.keypair
+        ? Keypair.fromSecretKey(
+            new Uint8Array(
+              JSON.parse(fs.readFileSync(options.keypair, "utf-8"))
+            )
+          )
+        : loadDefaultKeypair();
+
+      const isAuthority = await checkProgramAuthority(
+        new PublicKey(programId),
+        keypair.publicKey,
+        rpcUrl
+      );
+
+      if (!isAuthority) {
+        console.warn(AUTHORITY_WARNING_MESSAGE);
+        return;
+      }
+
+      await closeProgramMetadata(
+        new PublicKey(programId),
+        keypair,
+        rpcUrl,
+        options.seed,
+        parseInt(options.priorityFees),
+        options.addSignerSeed
+      );
+      console.log("Metadata account closed successfully!");
     } catch (error) {
       console.error(
         "Error:",

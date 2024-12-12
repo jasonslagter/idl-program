@@ -9,7 +9,8 @@ The trick is that only the program upgrade authority can create the canonical PD
 Also instead of the whole IDL or metadata json people can choose to just upload a URL to the IDL instead to save on chain space and make updates easy.
 
 The the moment the IDL and Metadata are not yet merged into Solana explorer but here is a preview build that can show you how it looks like: 
-https://explorer-dun.vercel.app/
+https://explorer-dun.vercel.app/address/6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A/program-metadata?cluster=devnet
+https://explorer-dun.vercel.app/address/6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A/idl?cluster=devnet
 
 ## CLI Usage
 
@@ -121,15 +122,15 @@ npx solana-program-metadata metadata download <program-id> [output-file] \
 ### Examples
 
 ```bash
-# Upload IDL using default keypair
+# Upload IDL using default keypair that is the program authority
 npx solana-program-metadata idl upload ./target/idl/my_program.json 6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A
 
-# Upload metadata with custom keypair
+# Upload metadata with custom keypair to devnet
 npx solana-program-metadata metadata upload ./metadata.json 6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A \
   -k ./my-keypair.json \
   -ud
 
-# Upload metadata with non-associated PDA (using signer's pubkey as additional seed)
+# Upload metadata with non-associated PDA (using signer's pubkey as additional seed creating a non associated metadata account) 
 npx solana-program-metadata metadata upload-url https://example.com/metadata.json 6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A \
   --add-signer-seed
 

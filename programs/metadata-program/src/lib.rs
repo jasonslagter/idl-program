@@ -157,6 +157,10 @@ pub mod metadata_program {
         Ok(())
     }
 
+    pub fn close_metadata_account(_ctx: Context<CloseMetadataAccount>) -> Result<()> {
+        Ok(())
+    }
+
     pub fn close_buffer(_ctx: Context<CloseBuffer>) -> Result<()> {
         Ok(())
     }
@@ -276,6 +280,15 @@ pub struct Resize<'info> {
 pub struct CreateBuffer<'info> {
     #[account(zero)]
     pub buffer: Account<'info, MetadataAccount>,
+    #[account(constraint = authority.key != &ERASED_AUTHORITY)]
+    pub authority: Signer<'info>,
+}
+
+// Close metadata account to claim back SOL. Only the authority can close the account.
+#[derive(Accounts)]
+pub struct CloseMetadataAccount<'info> {
+    #[account(mut, close = authority, constraint = metadata_account.authority == authority.key())]
+    pub metadata_account: Account<'info, MetadataAccount>,
     #[account(constraint = authority.key != &ERASED_AUTHORITY)]
     pub authority: Signer<'info>,
 }
