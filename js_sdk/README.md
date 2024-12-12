@@ -1,16 +1,41 @@
 # IDL Registry Program
 
+## Table of Contents
+
+- [Quick Start](#quick-start)
+- [Description](#description)
+- [CLI Usage](#cli-usage)
+  - [Installation](#installation)
+  - [Commands](#commands)
+- [JavaScript Usage](#javascript-usage)
+- [Non-Associated PDAs](#non-associated-pdas)
+
+## Quick Start
+
+```bash
+# Install and upload IDL in one command
+npx solana-program-metadata idl upload ./my-idl.json <program-id>
+```
+
 ## Description
 
-A program that can save any metadata linked to your program.
-The main usecase being IDL and a metadata json with name, logo and contact infos similar to security.txt.
-The trick is that only the program upgrade authority can create the canonical PDA. This makes the metadata very easy to find by just using the seeds "idl", "metadata" or anything else you want.
+A Solana program for storing and retrieving program metadata on-chain. It enables:
 
-Also instead of the whole IDL or metadata json people can choose to just upload a URL to the IDL instead to save on chain space and make updates easy.
+- Storage of IDL files
+- Program metadata (name, logo, contact info, etc.)
+- Verifiable program information through upgrade authority validation
+- Optional URL-based storage for reduced on-chain footprint
 
-The the moment the IDL and Metadata are not yet merged into Solana explorer but here is a preview build that can show you how it looks like: 
-https://explorer-dun.vercel.app/address/6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A/program-metadata?cluster=devnet
-https://explorer-dun.vercel.app/address/6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A/idl?cluster=devnet
+The trick is that only the program upgrade authority can create the associated PDA. This
+makes the metadata very easy to find by just using the seeds "idl", "metadata" or anything
+else you want.
+
+At the moment the IDL and Metadata are not yet merged into Solana explorer but here is a
+preview build that can show you how it looks like:
+https://explorer-dun.vercel.app/address/6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A/
+program-metadata?cluster=devnet
+https://explorer-dun.vercel.app/address/6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A/idl?
+cluster=devnet
 
 ## CLI Usage
 
@@ -54,6 +79,12 @@ npx solana-program-metadata idl download <program-id> [output-file] \
 #### Metadata Commands
 
 You can also upload metadata for you program. This is the recommended format of the metadata json file. Similar to security.txt.
+
+Create a template metadata.json file:
+
+```bash
+npx solana-program-metadata metadata init
+```
 
 ```json
 {
@@ -130,7 +161,7 @@ npx solana-program-metadata metadata upload ./metadata.json 6XzaKuAwqP7Nn37vwRdU
   -k ./my-keypair.json \
   -ud
 
-# Upload metadata with non-associated PDA (using signer's pubkey as additional seed creating a non associated metadata account) 
+# Upload metadata with non-associated PDA (using signer's pubkey as additional seed creating a non associated metadata account)
 npx solana-program-metadata metadata upload-url https://example.com/metadata.json 6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A \
   --add-signer-seed
 

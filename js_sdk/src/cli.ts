@@ -15,6 +15,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { decodeUpgradeableLoaderState } from "@coral-xyz/anchor/dist/cjs/utils/registry";
+import { ProgramMetaData } from "./ProgramMetaData";
 
 const LOCALHOST_URL = "http://127.0.0.1:8899";
 const DEVNET_URL = "https://api.devnet.solana.com";
@@ -445,6 +446,50 @@ metadataCommand
         options.addSignerSeed
       );
       console.log("Metadata account closed successfully!");
+    } catch (error) {
+      console.error(
+        "Error:",
+        error instanceof Error ? error.message : "Unknown error occurred"
+      );
+      process.exit(1);
+    }
+  });
+
+metadataCommand
+  .command("init [output]")
+  .description("Create a template metadata.json file")
+  .action((output = "metadata.json") => {
+    try {
+      const templateMetadata: ProgramMetaData = {
+        name: "My Program Name",
+        version: "1.0.0",
+        description: "A description of what my program does",
+        logo: "https://example.com/logo.png",
+        project_url: "https://example.com/my-project",
+        contacts: [
+          "https://twitter.com/username",
+          "https://github.com/username",
+          "Discord: username#1234",
+          "Email: dev@example.com"
+        ],
+        source_code: "https://github.com/username/repo",
+        source_release: "v1.0.0",
+        source_revision: "abc123...",
+        sdk: "https://www.npmjs.com/package/my-sdk",
+        preferred_languages: ["Rust", "TypeScript"],
+        policy: "https://example.com/terms",
+        auditors: ["Auditor Company Name"],
+        acknowledgements: "Thanks to...",
+        expiry: "2025-12-31",
+        notification: "Important update coming soon!",
+        encryption: "none"
+      };
+
+      fs.writeFileSync(
+        output,
+        JSON.stringify(templateMetadata, null, 2)
+      );
+      console.log(`Template metadata file created at ${output}`);
     } catch (error) {
       console.error(
         "Error:",
