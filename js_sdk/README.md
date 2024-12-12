@@ -150,11 +150,6 @@ npx solana-program-metadata metadata upload tests/metadata.json 6XzaKuAwqP7Nn37v
 npx solana-program-metadata metadata upload-url https://raw.githubusercontent.com/solana-developers/idl-program/refs/heads/main/tests/metadata.json 6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A \
   -k tests/wallet2.json -ud
 
-# Local development examples
-npm run cli -- idl upload ../tests/testidl.json 6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A -k ../tests/wallet2.json
-
-npm run cli -- metadata upload ../tests/metadata.json 6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A -k ../tests/wallet2.json
-
 ```
 
 ## JavaScript Usage

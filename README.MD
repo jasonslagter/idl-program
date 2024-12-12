@@ -8,6 +8,10 @@ The trick is that only the program upgrade authority can create the canonical PD
 
 Also instead of the whole IDL or metadata json people can choose to just upload a URL to the IDL instead to save on chain space and make updates easy.
 
+The the moment the IDL and Metadata are not yet merged into Solana explorer but here is a preview build that can show you how it looks like:
+https://explorer-dun.vercel.app/address/6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A/program-metadata?cluster=devnet
+https://explorer-dun.vercel.app/address/6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A/idl?cluster=devnet
+
 ## CLI Usage
 
 ### Installation
@@ -118,38 +122,33 @@ npx solana-program-metadata metadata download <program-id> [output-file] \
 ### Examples
 
 ```bash
-# Upload IDL using default keypair
-program-metadata idl upload ./target/idl/my_program.json 6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A
+# Upload IDL using default keypair that is the program authority
+npx solana-program-metadata idl upload ./target/idl/my_program.json 6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A
 
-# Upload metadata with custom keypair
-program-metadata metadata upload ./metadata.json 6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A \
+# Upload metadata with custom keypair to devnet
+npx solana-program-metadata metadata upload ./metadata.json 6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A \
   -k ./my-keypair.json \
   -ud
 
-# Upload metadata with non-associated PDA (using signer's pubkey as additional seed)
-program-metadata metadata upload-url https://example.com/metadata.json 6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A \
+# Upload metadata with non-associated PDA (using signer's pubkey as additional seed creating a non associated metadata account)
+npx solana-program-metadata metadata upload-url https://example.com/metadata.json 6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A \
   --add-signer-seed
 
 # Download associated metadata (default)
-program-metadata metadata download 6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A ./my-metadata.json
+npx solana-program-metadata metadata download 6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A ./my-metadata.json
 
 # Download non-associated metadata (requires signer's pubkey)
-program-metadata metadata download 6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A ./my-metadata.json \
+npx solana-program-metadata metadata download 6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A ./my-metadata.json \
   -s tes5FTVnmJAeq2Nb1Uv15pqiRuPdCHmCSThVbUNfe37
 
-program-metadata idl upload tests/testidl.json 6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A \
+npx solana-program-metadata idl upload tests/testidl.json 6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A \
   -k tests/wallet2.json -ud
 
-program-metadata metadata upload tests/metadata.json 6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A \
+npx solana-program-metadata metadata upload tests/metadata.json 6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A \
   -k tests/wallet2.json -ud
 
-program-metadata metadata upload-url https://raw.githubusercontent.com/solana-developers/idl-program/refs/heads/main/tests/metadata.json 6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A \
+npx solana-program-metadata metadata upload-url https://raw.githubusercontent.com/solana-developers/idl-program/refs/heads/main/tests/metadata.json 6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A \
   -k tests/wallet2.json -ud
-
-# Local development examples
-npm run cli -- idl upload ../tests/testidl.json 6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A -k ../tests/wallet2.json
-
-npm run cli -- metadata upload ../tests/metadata.json 6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A -k ../tests/wallet2.json
 
 ```
 
@@ -188,21 +187,20 @@ await fetchProgramMetadata(programId, rpcUrl);
 When using the `-a, --add-signer-seed` option, the program will add the signer's public key as an additional seed when deriving the PDA. This creates a non-associated PDA that is unique to that signer, allowing multiple metadata entries for the same program. Note that these can not easily be found anymore by just using the seeds "idl", "metadata" and the program id.
 This can be useful though if there is some entity that wants to upload metadata for a program but does not have the authority to do so.
 
-
 ## TODO
 
-- js v2 needed?
 - move upgrade authority to multisig and deploy program to mainnet
-- Add Support for non canonical PDAs. Needed? Will make the program more complex.
 - Add test case for bigger 10mb IDLs.
 - Write Web3js@2 cli using codama (generated client is already in the codama folder) (Good first issue)
 - validate URL parameters (e.g. no trailing slashes, starts with https:// etc.)
-- refactor to make the program more metadata instead of only IDL focused
-- Should we add a seed to IdlAccount? 
-- 
 
 ## Done
 
+- add check for authority in program
+- add close account instruction
+- refactor to make the program more metadata instead of only IDL focused
+- Should we add a seed to IdlAccount?
+- Add Support for non canonical PDAs. Needed? Will make the program more complex.
 - Add URL support
 - Add programId to PDA seeds
 - Close Buffer account when done with it
