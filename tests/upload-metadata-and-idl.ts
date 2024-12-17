@@ -53,7 +53,7 @@ describe("Test metadata program with idl and program metadata", () => {
 
     const idlAccount = getAssociatedIdlAddress(TEST_IDL_PROGRAM);
 
-    const idl = await program.account.metadataAccount.fetch(idlAccount);
+    const idl = await program.account.metadataAccount2.fetch(idlAccount);
     const accountInfo = await connection.getAccountInfo(idlAccount);
 
     if (!accountInfo) {
@@ -69,7 +69,7 @@ describe("Test metadata program with idl and program metadata", () => {
     const decompressedData = inflate(rawData);
     const decompressedUrl = Buffer.from(decompressedData).toString("utf8");
     console.log("Decompressed Url:", decompressedUrl);
-    const fetchedAnchorAccount = await program.account.metadataAccount.fetch(
+    const fetchedAnchorAccount = await program.account.metadataAccount2.fetch(
       idlAccount
     );
     const dataType = Buffer.from(fetchedAnchorAccount.dataType).toString(
@@ -110,9 +110,10 @@ describe("Test metadata program with idl and program metadata", () => {
 
     const idlResult = await fetchIDL(TEST_IDL_PROGRAM, rpcUrl);
 
-    const fetchedAnchorAccount = await program.account.metadataAccount.fetch(
+    const fetchedAnchorAccount = await program.account.metadataAccount2.fetch(
       idlAccount
     );
+    console.log("fetchedAnchorAccount.dataLen", fetchedAnchorAccount.dataLen);
 
     const dataType = Buffer.from(fetchedAnchorAccount.dataType).toString(
       "utf8"

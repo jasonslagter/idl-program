@@ -32,10 +32,8 @@ else you want.
 
 At the moment the IDL and Metadata are not yet merged into Solana explorer but here is a
 preview build that can show you how it looks like:
-https://explorer-dun.vercel.app/address/6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A/
-program-metadata?cluster=devnet
-https://explorer-dun.vercel.app/address/6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A/idl?
-cluster=devnet
+https://explorer-dun.vercel.app/address/6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A/program-metadata?cluster=devnet
+https://explorer-dun.vercel.app/address/6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A/idl?cluster=devnet
 
 ## CLI Usage
 
@@ -217,3 +215,16 @@ await fetchProgramMetadata(programId, rpcUrl);
 
 When using the `-a, --add-signer-seed` option, the program will add the signer's public key as an additional seed when deriving the PDA. This creates a non-associated PDA that is unique to that signer, allowing multiple metadata entries for the same program. Note that these can not easily be found anymore by just using the seeds "idl", "metadata" and the program id.
 This can be useful though if there is some entity that wants to upload metadata for a program but does not have the authority to do so.
+
+## Changelog
+
+### 1.0.0
+
+- added automatic rpc url and local keypair loading
+- added close metadata account instruction
+- added data type field to metadata account
+
+- **Breaking**: Changed metadata account structure. Users must:
+  1. Close existing metadata accounts using `close1` instruction
+  2. Create new metadata accounts with updated structure
+  3. Seed derivation changed to have the dynamic seed at the end for security reasons

@@ -1,17 +1,18 @@
 {
   "name": "solana-program-metadata",
   "description": "Save Solana program metadata and IDLs on chain",
-  "version": "0.0.19",
+  "version": "1.0.3",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/solana-developers/idl-program.git"
   },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "paths": {
-    "my-idl-test": [
-      "./js_sdk/dist"
-    ]
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
   },
   "keywords": [
     "solana",

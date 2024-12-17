@@ -218,7 +218,8 @@ This can be useful though if there is some entity that wants to upload metadata 
 - Add change authority instruction
 - Create JS library and CLI
 - Create Rust CLI (assignee @wealthineer)
-- add metadata init command 
+- add metadata init command
+- local rpc url from solana config
 
 ## Local development
 

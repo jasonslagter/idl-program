@@ -9,7 +9,8 @@ import {
   uploadProgramMetadataByUrl,
   fetchIDL,
   fetchProgramMetadata,
-  closeProgramMetadata,
+  closeProgramMetadata1,
+  closeProgramMetadata2,
 } from "./ProgramMetaData";
 import fs from "fs";
 import os from "os";
@@ -46,8 +47,15 @@ async function checkProgramAuthority(
   rpcUrl: string
 ): Promise<boolean> {
   try {
+    console.log("rpcUrl", rpcUrl);
     const connection = new Connection(rpcUrl);
-    const programAccount = await connection.getParsedAccountInfo(programId);
+    let programAccount;
+    try {
+      programAccount = await connection.getParsedAccountInfo(programId);
+    } catch (error) {
+      console.error("Error getting program account:", error);
+      process.exit(1);
+    }
 
     console.log("Program Loader: ", programAccount.value?.owner.toBase58());
 
@@ -103,7 +111,7 @@ async function checkProgramAuthority(
     return false;
   } catch (error) {
     console.error("Error checking program authority:", error);
-    return false;
+    process.exit(1);
   }
 }
 
@@ -289,9 +297,7 @@ metadataCommand
       );
 
       if (!isAuthority) {
-        console.warn(
-          "\x1b[33mWarning: The selected keypair is not the program's authority\x1b[0m"
-        );
+        console.warn(AUTHORITY_WARNING_MESSAGE);
         return;
       }
 
@@ -437,7 +443,7 @@ metadataCommand
         return;
       }
 
-      await closeProgramMetadata(
+      await closeProgramMetadata2(
         new PublicKey(programId),
         keypair,
         rpcUrl,
@@ -446,6 +452,55 @@ metadataCommand
         options.addSignerSeed
       );
       console.log("Metadata account closed successfully!");
+    } catch (error) {
+      console.error(
+        "Error:",
+        error instanceof Error ? error.message : "Unknown error occurred"
+      );
+      process.exit(1);
+    }
+  });
+
+metadataCommand
+  .command("close1 <program-id>")
+  .description("Close metadata account v1 and recover rent")
+  .option("-k, --keypair <path>", "Path to keypair file")
+  .option(
+    "-p, --priority-fees <number>",
+    "Priority fees per compute unit",
+    "100000"
+  )
+  .option("-u, --url <string>", "Custom RPC URL")
+  .option("-ul, --url-local", "Use localhost RPC (default)")
+  .option("-ud, --url-devnet", "Use Devnet RPC")
+  .option("-um, --url-mainnet", "Use Mainnet RPC")
+  .requiredOption(
+    "-s, --seed <string>",
+    "Seed for the account to close (metadata or idl)"
+  )
+  .option(
+    "-a, --add-signer-seed",
+    "Add signer's public key as additional seed",
+    false
+  )
+  .action(async (programId, options) => {
+    try {
+      const rpcUrl = getRpcUrl(options);
+      const keypair = options.keypair
+        ? Keypair.fromSecretKey(
+            new Uint8Array(JSON.parse(fs.readFileSync(options.keypair, "utf-8")))
+          )
+        : loadDefaultKeypair();
+
+      await closeProgramMetadata1(
+        new PublicKey(programId),
+        keypair,
+        rpcUrl,
+        options.seed,
+        parseInt(options.priorityFees),
+        options.addSignerSeed
+      );
+      console.log("Metadata account v1 closed successfully!");
     } catch (error) {
       console.error(
         "Error:",
@@ -470,7 +525,7 @@ metadataCommand
           "https://twitter.com/username",
           "https://github.com/username",
           "Discord: username#1234",
-          "Email: dev@example.com"
+          "Email: dev@example.com",
         ],
         source_code: "https://github.com/username/repo",
         source_release: "v1.0.0",
@@ -482,13 +537,10 @@ metadataCommand
         acknowledgements: "Thanks to...",
         expiry: "2025-12-31",
         notification: "Important update coming soon!",
-        encryption: "none"
+        encryption: "none",
       };
 
-      fs.writeFileSync(
-        output,
-        JSON.stringify(templateMetadata, null, 2)
-      );
+      fs.writeFileSync(output, JSON.stringify(templateMetadata, null, 2));
       console.log(`Template metadata file created at ${output}`);
     } catch (error) {
       console.error(
@@ -532,10 +584,41 @@ function loadDefaultKeypair(): Keypair {
 
 // Helper function to determine RPC URL
 function getRpcUrl(options: any): string {
+  // First check explicit options
   if (options.url) return options.url;
   if (options.urlDevnet) return DEVNET_URL;
   if (options.urlMainnet) return MAINNET_URL;
-  return LOCALHOST_URL; // default
+  if (options.urlLocal) return LOCALHOST_URL;
+
+  // If no explicit option, try to get from Solana config
+  try {
+    const configPath = path.join(
+      os.homedir(),
+      ".config",
+      "solana",
+      "cli",
+      "config.yml"
+    );
+    console.log("configPath", configPath);
+    if (fs.existsSync(configPath)) {
+      const config = fs.readFileSync(configPath, "utf8");
+      const jsonUrl = config.match(/json_rpc_url: (.+)\n/)?.[1];
+      console.log("Falling back to localhost: " + jsonUrl);
+      if (jsonUrl && jsonUrl.indexOf("localhost") > -1) {
+        return LOCALHOST_URL;
+      }
+      if (jsonUrl) {
+        return jsonUrl;
+      }
+    }
+  } catch (error) {
+    console.warn(
+      "Could not read Solana config file, falling back to localhost"
+    );
+  }
+
+  // Fallback to localhost if nothing else works
+  return LOCALHOST_URL;
 }
 
 program.parse();

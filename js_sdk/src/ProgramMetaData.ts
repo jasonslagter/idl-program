@@ -1,9 +1,10 @@
-import { Connection, Keypair, PublicKey } from "@solana/web3.js";
+import { Keypair, PublicKey } from "@solana/web3.js";
 import fs from "fs";
 import { MetadataProgram } from "./types/metadata_program";
 import IDL from "./metadata_program.json";
 import * as anchor from "@coral-xyz/anchor";
 import { inflate, deflate } from "pako";
+import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 
 const CHUNK_SIZE = 900;
 const MAX_RESIZE_STEP = 10240;
@@ -281,6 +282,10 @@ async function initializeMetaDataBySeed(
       priorityFeesPerCU
     );
     tx.add(initializePdaInstruction);
+    console.log(
+      "Serialised transaction for multisig",
+      bs58.encode(tx.compileMessage().serialize())
+    );
     tx.sign(keypair);
     provider.wallet.signTransaction(tx);
 
@@ -332,6 +337,10 @@ async function setAuthority(
   tx.add(setAuthorityInstruction);
   tx.recentBlockhash = getLatestBlockhash.blockhash;
   tx.feePayer = keypair.publicKey;
+  console.log(
+    "Serialised transaction for multisig",
+    bs58.encode(tx.compileMessage().serialize())
+  );
   tx.sign(keypair);
   provider.wallet.signTransaction(tx);
 
@@ -567,10 +576,10 @@ function getMetadataAddressBySeed(
   seed: string,
   signerSeed?: PublicKey
 ): PublicKey {
-  const seeds = [Buffer.from(seed, "utf8"), programId.toBuffer()];
+  const seeds = [programId.toBuffer(), Buffer.from(seed, "utf8")];
 
   if (signerSeed) {
-    seeds.push(signerSeed.toBuffer());
+    seeds.splice(1, 0, signerSeed.toBuffer());
   }
 
   const [idlAccount] = anchor.web3.PublicKey.findProgramAddressSync(
@@ -606,14 +615,18 @@ async function fetchIDL(
 
   console.log("Data type", dataType);
 
-  // Get the data length and content
   const dataLenBytes = accountInfo.data.slice(
     METADATA_OFFSET - 4,
     METADATA_OFFSET
   );
-  console.log("dataLenBytes", dataLenBytes);
+  const dataLength = new DataView(
+    dataLenBytes.buffer,
+    dataLenBytes.byteOffset,
+    dataLenBytes.byteLength
+  ).getUint32(0, true); // true for little-endian
 
-  const dataLength = new DataView(dataLenBytes.buffer).getUint32(0);
+  console.log("dataLength", dataLength);
+
   const compressedData = accountInfo.data.slice(
     METADATA_OFFSET,
     METADATA_OFFSET + dataLength
@@ -781,7 +794,12 @@ async function fetchProgramMetadata(
     METADATA_OFFSET - 4,
     METADATA_OFFSET
   );
-  const dataLength = new DataView(dataLenBytes.buffer).getUint32(0);
+  const dataLength = new DataView(
+    dataLenBytes.buffer,
+    dataLenBytes.byteOffset,
+    dataLenBytes.byteLength
+  ).getUint32(0, true); // true for little-endian
+
   const compressedData = accountInfo.data.slice(
     METADATA_OFFSET,
     METADATA_OFFSET + dataLength
@@ -924,7 +942,7 @@ async function uploadProgramMetadataByUrl(
   }
 }
 
-export async function closeProgramMetadata(
+export async function closeProgramMetadata2(
   programId: PublicKey,
   authority: Keypair,
   rpcUrl: string,
@@ -942,7 +960,47 @@ export async function closeProgramMetadata(
   );
 
   const closeInstruction = await program.methods
-    .closeMetadataAccount()
+    .closeMetadataAccount2()
+    .accountsPartial({
+      metadataAccount: metadataAccount,
+      authority: authority.publicKey,
+    })
+    .instruction();
+
+  const tx = await createTransaction(
+    connection,
+    authority.publicKey,
+    priorityFees
+  );
+
+  tx.add(closeInstruction);
+  provider.wallet.signTransaction(tx);
+
+  await withRetry(async () => {
+    const signature = await connection.sendRawTransaction(tx.serialize());
+    await connection.confirmTransaction(signature, "confirmed");
+    console.log("Close metadata signature", signature);
+  });
+}
+
+export async function closeProgramMetadata1(
+  programId: PublicKey,
+  authority: Keypair,
+  rpcUrl: string,
+  seed: string,
+  priorityFees: number = 100000,
+  additionalSignerSeed?: boolean
+): Promise<void> {
+  const { connection, provider, program } = setupConnection(rpcUrl, authority);
+
+  const metadataAccount = getMetadataAddressBySeed(
+    programId,
+    seed,
+    additionalSignerSeed ? authority.publicKey : undefined
+  );
+
+  const closeInstruction = await program.methods
+    .closeMetadataAccount1()
     .accountsPartial({
       metadataAccount: metadataAccount,
       authority: authority.publicKey,

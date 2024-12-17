@@ -73,6 +73,7 @@ pub mod metadata_program {
         // When all is good create PDA and save authority for later upgrades.
         let account = &mut ctx.accounts.pda;
         account.authority = *ctx.accounts.signer.key;
+        account.program_id = *ctx.accounts.program_id.key;
         account.set_data_type(&data_type)?;
         
         Ok(())
@@ -126,6 +127,7 @@ pub mod metadata_program {
         // When all is good create PDA and save authority for later upgrades.
         let account = &mut ctx.accounts.pda;
         account.authority = *ctx.accounts.signer.key;
+        account.program_id = *ctx.accounts.program_id.key;
         account.set_data_type(&data_type)?;
         Ok(())
     }
@@ -157,7 +159,11 @@ pub mod metadata_program {
         Ok(())
     }
 
-    pub fn close_metadata_account(_ctx: Context<CloseMetadataAccount>) -> Result<()> {
+    pub fn close_metadata_account_2(_ctx: Context<CloseMetadataAccount2>) -> Result<()> {
+        Ok(())
+    }
+
+    pub fn close_metadata_account_1(_ctx: Context<CloseMetadataAccount1>) -> Result<()> {
         Ok(())
     }
 
@@ -194,7 +200,7 @@ pub mod metadata_program {
         fn trailing_data_mut(self) -> RefMut<'info, [u8]>;
     }
 
-    impl<'a, 'info: 'a> MetadataUploadTrailingData<'a> for &'a Account<'info, MetadataAccount> {
+    impl<'a, 'info: 'a> MetadataUploadTrailingData<'a> for &'a Account<'info, MetadataAccount2> {
         fn trailing_data(self) -> Ref<'a, [u8]> {
             let info: &AccountInfo<'info> = self.as_ref();
             Ref::map(info.try_borrow_data().unwrap(), |d| &d[(METADATA_ACCOUNT_SIZE as usize )..])
@@ -211,12 +217,12 @@ pub mod metadata_program {
 pub struct Initialize<'info> {
     #[account(
         init,
-        seeds = [seed.as_ref(), program_id.key.as_ref()],
+        seeds = [program_id.key.as_ref(), seed.as_ref()],
         bump,
         payer = signer,
         space = METADATA_ACCOUNT_SIZE as usize,
     )]
-    pub pda: Account<'info, MetadataAccount>,
+    pub pda: Account<'info, MetadataAccount2>,
     #[account(mut)]
     pub signer: Signer<'info>,
     pub system_program: Program<'info, System>,
@@ -232,12 +238,12 @@ pub struct Initialize<'info> {
 pub struct InitializeWithSignerSeed<'info> {
     #[account(
         init,
-        seeds = [seed.as_ref(), program_id.key.as_ref(), signer.key.as_ref()],
+        seeds = [program_id.key.as_ref(), signer.key.as_ref(), seed.as_ref()],
         bump,
         payer = signer,
         space = METADATA_ACCOUNT_SIZE as usize,
     )]
-    pub pda: Account<'info, MetadataAccount>,
+    pub pda: Account<'info, MetadataAccount2>,
     #[account(mut)]
     pub signer: Signer<'info>,
     pub system_program: Program<'info, System>,
@@ -250,7 +256,7 @@ pub struct InitializeWithSignerSeed<'info> {
 #[derive(Accounts)]
 pub struct MetadataAccounts<'info> {
     #[account(mut, has_one = authority)]
-    pub pda: Account<'info, MetadataAccount>,
+    pub pda: Account<'info, MetadataAccount2>,
     #[account(constraint = authority.key != &ERASED_AUTHORITY)]
     pub authority: Signer<'info>,
 }
@@ -266,7 +272,7 @@ pub struct Resize<'info> {
         realloc::payer = signer,
         constraint = pda.authority == signer.key()
     )]
-    pub pda: Account<'info, MetadataAccount>,
+    pub pda: Account<'info, MetadataAccount2>,
     #[account(mut)]
     pub signer: Signer<'info>,
     pub system_program: Program<'info, System>,
@@ -279,25 +285,35 @@ pub struct Resize<'info> {
 #[instruction(data_type: String)]
 pub struct CreateBuffer<'info> {
     #[account(zero)]
-    pub buffer: Account<'info, MetadataAccount>,
+    pub buffer: Account<'info, MetadataAccount2>,
     #[account(constraint = authority.key != &ERASED_AUTHORITY)]
     pub authority: Signer<'info>,
 }
 
 // Close metadata account to claim back SOL. Only the authority can close the account.
 #[derive(Accounts)]
-pub struct CloseMetadataAccount<'info> {
+pub struct CloseMetadataAccount2<'info> {
+    #[account(mut, close = authority, constraint = metadata_account.authority == authority.key())]
+    pub metadata_account: Account<'info, MetadataAccount2>,
+    #[account(constraint = authority.key != &ERASED_AUTHORITY)]
+    pub authority: Signer<'info>,
+}
+
+// Close metadata account to claim back SOL. Only the authority can close the account.
+#[derive(Accounts)]
+pub struct CloseMetadataAccount1<'info> {
     #[account(mut, close = authority, constraint = metadata_account.authority == authority.key())]
     pub metadata_account: Account<'info, MetadataAccount>,
     #[account(constraint = authority.key != &ERASED_AUTHORITY)]
     pub authority: Signer<'info>,
 }
 
+
 // Close buffer to claim back SOL
 #[derive(Accounts)]
 pub struct CloseBuffer<'info> {
     #[account(mut, close = authority, constraint = buffer.authority == authority.key())]
-    pub buffer: Account<'info, MetadataAccount>,
+    pub buffer: Account<'info, MetadataAccount2>,
     #[account(constraint = authority.key != &ERASED_AUTHORITY)]
     pub authority: Signer<'info>,
 }
@@ -305,7 +321,7 @@ pub struct CloseBuffer<'info> {
 #[derive(Accounts)]
 pub struct WriteBuffer<'info> {
     #[account(mut, constraint = buffer.authority == signer.key())]
-    pub buffer: Account<'info, MetadataAccount>,
+    pub buffer: Account<'info, MetadataAccount2>,
     #[account(mut, constraint = signer.key != &ERASED_AUTHORITY)]
     pub signer: Signer<'info>,
     pub system_program: Program<'info, System>,
@@ -316,17 +332,26 @@ pub struct WriteBuffer<'info> {
 pub struct SetBuffer<'info> {
     // The buffer with the new metadata.
     #[account(mut, constraint = buffer.authority == pda.authority)]
-    pub buffer: Account<'info, MetadataAccount>,
+    pub buffer: Account<'info, MetadataAccount2>,
     // The pda account to be updated with the buffer's data.
     #[account(mut, 
         has_one = authority,
         constraint = pda.authority == authority.key()
     )]
-    pub pda: Account<'info, MetadataAccount>,
+    pub pda: Account<'info, MetadataAccount2>,
     #[account(constraint = authority.key != &ERASED_AUTHORITY)]
     pub authority: Signer<'info>,
     /// CHECK: This is the program id of the program you want to upload the IDL for.
     pub program_id: AccountInfo<'info>,
+}
+
+#[account]
+pub struct MetadataAccount2 {
+    pub authority: Pubkey,
+    pub data_type: [u8; 16], // 16 bytes to be flexible to what people want to use it for. 
+    pub program_id: Pubkey,
+    pub data_len: u32,
+    // trailing data...
 }
 
 #[account]
@@ -336,6 +361,7 @@ pub struct MetadataAccount {
     pub data_len: u32,
     // trailing data...
 }
+
 
 // Common data type constants
 #[constant]
@@ -355,6 +381,7 @@ pub const DATA_TYPE_META_URL: &str = "meta.url";
 
 // Size constants for composability
 pub const PUBKEY_LENGTH: u64 = 32;
+pub const PROGRAM_ID_LENGTH: u64 = 32;
 pub const U32_LENGTH: u64 = 4;
 
 #[constant]
@@ -363,11 +390,12 @@ pub const DATA_TYPE_LENGTH: u64 = 16;
 #[constant]
 pub const METADATA_ACCOUNT_SIZE: u64 = 
     PUBKEY_LENGTH +                 // authority
+    PROGRAM_ID_LENGTH +             // program_id
     U32_LENGTH +                    // data_len
-    DATA_TYPE_LENGTH + 8;               // data_type + discriminator
+    DATA_TYPE_LENGTH + 8;           // data_type + discriminator
 
 
-impl MetadataAccount {
+impl MetadataAccount2 {
     pub fn set_data_type(&mut self, data_type: &str) -> Result<()> {
         require!(data_type.len() <= DATA_TYPE_LENGTH as usize, MyError::DataTypeTooLong);
         self.data_type.fill(0);  // Clear existing data
