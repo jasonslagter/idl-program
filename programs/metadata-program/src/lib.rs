@@ -258,6 +258,22 @@ pub mod metadata_program {
             RefMut::map(info.try_borrow_mut_data().unwrap(), |d| &mut d[(METADATA_ACCOUNT_SIZE as usize )..])
         }
     }
+
+    pub trait MetadataBufferUploadTrailingData<'info> {
+        fn trailing_data(self) -> Ref<'info, [u8]>;
+        fn trailing_data_mut(self) -> RefMut<'info, [u8]>;
+    }
+
+    impl<'a, 'info: 'a> MetadataBufferUploadTrailingData<'a> for &'a Account<'info, MetadataBuffer> {
+        fn trailing_data(self) -> Ref<'a, [u8]> {
+            let info: &AccountInfo<'info> = self.as_ref();
+            Ref::map(info.try_borrow_data().unwrap(), |d| &d[(METADATA_ACCOUNT_SIZE as usize )..])
+        }
+        fn trailing_data_mut(self) -> RefMut<'a, [u8]> {
+            let info: &AccountInfo<'info> = self.as_ref();
+            RefMut::map(info.try_borrow_mut_data().unwrap(), |d| &mut d[(METADATA_ACCOUNT_SIZE as usize )..])
+        }
+    }
 }
 
 #[derive(Accounts)]
@@ -333,7 +349,7 @@ pub struct Resize<'info> {
 #[instruction(data_type: String)]
 pub struct CreateBuffer<'info> {
     #[account(zero)]
-    pub buffer: Account<'info, MetadataAccount2>,
+    pub buffer: Account<'info, MetadataBuffer>,
     #[account(constraint = authority.key != &ERASED_AUTHORITY)]
     pub authority: Signer<'info>,
 }
@@ -361,7 +377,7 @@ pub struct CloseMetadataAccount1<'info> {
 #[derive(Accounts)]
 pub struct CloseBuffer<'info> {
     #[account(mut, close = authority, constraint = buffer.authority == authority.key())]
-    pub buffer: Account<'info, MetadataAccount2>,
+    pub buffer: Account<'info, MetadataBuffer>,
     #[account(constraint = authority.key != &ERASED_AUTHORITY)]
     pub authority: Signer<'info>,
 }
@@ -369,7 +385,7 @@ pub struct CloseBuffer<'info> {
 #[derive(Accounts)]
 pub struct WriteBuffer<'info> {
     #[account(mut, constraint = buffer.authority == signer.key())]
-    pub buffer: Account<'info, MetadataAccount2>,
+    pub buffer: Account<'info, MetadataBuffer>,
     #[account(mut, constraint = signer.key != &ERASED_AUTHORITY)]
     pub signer: Signer<'info>,
     pub system_program: Program<'info, System>,
@@ -381,7 +397,7 @@ pub struct SetBuffer<'info> {
     // The buffer with the new metadata. The authority of this can be anyone so that 
     // anyone can write it. But only the program authority or the PDA authority can set the buffer.
     #[account(mut)]
-    pub buffer: Account<'info, MetadataAccount2>,
+    pub buffer: Account<'info, MetadataBuffer>,
     // The pda account to be updated with the buffer's data. There are two checks of the PDA:
     // 1. The PDA that is the authority of the program. This is the program authority.
     // 2. The PDA that is the authority of the program data. This is the PDA authority.
@@ -406,13 +422,21 @@ pub struct MetadataAccount2 {
 }
 
 #[account]
+pub struct MetadataBuffer {
+    pub authority: Pubkey,
+    pub data_type: [u8; 16], // 16 bytes to be flexible to what people want to use it for. 
+    pub program_id: Pubkey,
+    pub data_len: u32,
+    // trailing data...
+}
+
+#[account]
 pub struct MetadataAccount {
     pub authority: Pubkey,
     pub data_type: [u8; 16], // 16 bytes to be flexible to what people want to use it for. 
     pub data_len: u32,
     // trailing data...
 }
-
 
 // Common data type constants
 #[constant]
@@ -445,8 +469,22 @@ pub const METADATA_ACCOUNT_SIZE: u64 =
     U32_LENGTH +                    // data_len
     DATA_TYPE_LENGTH + 8;           // data_type + discriminator
 
-
 impl MetadataAccount2 {
+    pub fn set_data_type(&mut self, data_type: &str) -> Result<()> {
+        require!(data_type.len() <= DATA_TYPE_LENGTH as usize, MyError::DataTypeTooLong);
+        self.data_type.fill(0);  // Clear existing data
+        self.data_type[..data_type.len()].copy_from_slice(data_type.as_bytes());
+        Ok(())
+    }
+
+    pub fn get_data_type(&self) -> String {
+        let len = self.data_type.iter().position(|&x| x == 0).unwrap_or(DATA_TYPE_LENGTH as usize);
+        String::from_utf8_lossy(&self.data_type[..len]).to_string()
+    }
+}
+
+
+impl MetadataBuffer {
     pub fn set_data_type(&mut self, data_type: &str) -> Result<()> {
         require!(data_type.len() <= DATA_TYPE_LENGTH as usize, MyError::DataTypeTooLong);
         self.data_type.fill(0);  // Clear existing data

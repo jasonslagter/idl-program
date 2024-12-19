@@ -285,6 +285,10 @@ export type MetadataProgram = {
     {
       name: "metadataAccount2";
       discriminator: [217, 197, 213, 23, 62, 14, 230, 192];
+    },
+    {
+      name: "metadataBuffer";
+      discriminator: [123, 121, 190, 46, 245, 204, 102, 54];
     }
   ];
   errors: [
@@ -349,6 +353,32 @@ export type MetadataProgram = {
     },
     {
       name: "metadataAccount2";
+      type: {
+        kind: "struct";
+        fields: [
+          {
+            name: "authority";
+            type: "pubkey";
+          },
+          {
+            name: "dataType";
+            type: {
+              array: ["u8", 16];
+            };
+          },
+          {
+            name: "programId";
+            type: "pubkey";
+          },
+          {
+            name: "dataLen";
+            type: "u32";
+          }
+        ];
+      };
+    },
+    {
+      name: "metadataBuffer";
       type: {
         kind: "struct";
         fields: [

@@ -279,6 +279,10 @@
     {
       "name": "MetadataAccount2",
       "discriminator": [217, 197, 213, 23, 62, 14, 230, 192]
+    },
+    {
+      "name": "MetadataBuffer",
+      "discriminator": [123, 121, 190, 46, 245, 204, 102, 54]
     }
   ],
   "errors": [
@@ -343,6 +347,32 @@
     },
     {
       "name": "MetadataAccount2",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "data_type",
+            "type": {
+              "array": ["u8", 16]
+            }
+          },
+          {
+            "name": "program_id",
+            "type": "pubkey"
+          },
+          {
+            "name": "data_len",
+            "type": "u32"
+          }
+        ]
+      }
+    },
+    {
+      "name": "MetadataBuffer",
       "type": {
         "kind": "struct",
         "fields": [

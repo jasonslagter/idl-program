@@ -13,6 +13,7 @@ import {
   closeProgramMetadata2,
   closeBuffer,
   listBuffers,
+  listPDAs,
 } from "./ProgramMetaData";
 import fs from "fs";
 import os from "os";
@@ -339,7 +340,8 @@ metadataCommand
         keypair,
         rpcUrl,
         parseInt(options.priorityFees),
-        options.addSignerSeed
+        options.addSignerSeed,
+        options.exportOnly
       );
 
       if (options.exportOnly && result) {
@@ -677,6 +679,46 @@ metadataCommand
       console.log("\nFound buffers:");
       buffers.forEach(({ address, dataLength, dataType }) => {
         console.log(`\nAddress: ${address.toBase58()}`);
+        console.log(`Data Length: ${dataLength} bytes`);
+        console.log(`Data Type: ${dataType}`);
+      });
+    } catch (error) {
+      console.error(
+        "Error:",
+        error instanceof Error ? error.message : "Unknown error occurred"
+      );
+      process.exit(1);
+    }
+  });
+
+metadataCommand
+  .command("list-pdas")
+  .description("List all metadata PDAs owned by an authority")
+  .option("-k, --keypair <path>", "Path to keypair file")
+  .option("-u, --url <string>", "Custom RPC URL")
+  .option("-ul, --url-local", "Use localhost RPC (default)")
+  .option("-ud, --url-devnet", "Use Devnet RPC")
+  .option("-um, --url-mainnet", "Use Mainnet RPC")
+  .action(async (options) => {
+    try {
+      const rpcUrl = getRpcUrl(options);
+      const keypair = options.keypair
+        ? Keypair.fromSecretKey(
+            new Uint8Array(JSON.parse(fs.readFileSync(options.keypair, "utf-8")))
+          )
+        : loadDefaultKeypair();
+
+      const pdas = await listPDAs(keypair.publicKey, rpcUrl);
+      
+      if (pdas.length === 0) {
+        console.log("No PDAs found for this authority");
+        return;
+      }
+
+      console.log("\nFound PDAs:");
+      pdas.forEach(({ address, dataLength, dataType, programId }) => {
+        console.log(`\nAddress: ${address.toBase58()}`);
+        console.log(`Program ID: ${programId.toBase58()}`);
         console.log(`Data Length: ${dataLength} bytes`);
         console.log(`Data Type: ${dataType}`);
       });

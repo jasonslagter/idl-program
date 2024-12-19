@@ -1148,7 +1148,11 @@ async function closeBuffer(
     })
     .instruction();
 
-  const tx = await createTransaction(connection, authority.publicKey, priorityFees);
+  const tx = await createTransaction(
+    connection,
+    authority.publicKey,
+    priorityFees
+  );
 
   tx.add(closeInstruction);
   provider.wallet.signTransaction(tx);
@@ -1160,37 +1164,93 @@ async function closeBuffer(
   });
 }
 
-async function listBuffers(
+async function listAccountsByType(
   authority: PublicKey,
   rpcUrl: string,
-): Promise<Array<{address: PublicKey, dataLength: number, dataType: string}>> {
+  accountType: string
+): Promise<
+  Array<{
+    address: PublicKey;
+    dataLength: number;
+    dataType: string;
+    programId: PublicKey;
+  }>
+> {
   const connection = new anchor.web3.Connection(rpcUrl);
-  const program = new anchor.Program(IDL as MetadataProgram, new anchor.AnchorProvider(
-    connection,
-    new anchor.Wallet(Keypair.generate()),
-    {}
-  ));
+  const program = new anchor.Program(
+    IDL as MetadataProgram,
+    new anchor.AnchorProvider(
+      connection,
+      new anchor.Wallet(Keypair.generate()),
+      {}
+    )
+  );
 
-  // Get all accounts owned by our program
+  const discriminator = IDL.accounts.find(
+    (account) => account.name === accountType
+  )?.discriminator;
+
+  if (!discriminator) {
+    throw new Error(`${accountType} discriminator not found in IDL`);
+  }
+
   const accounts = await connection.getProgramAccounts(program.programId, {
     filters: [
       {
         memcmp: {
+          offset: 0,
+          bytes: bs58.encode(Buffer.from(discriminator)),
+        },
+      },
+      {
+        memcmp: {
           offset: 8, // After discriminator
-          bytes: authority.toBase58(), // Filter by authority
+          bytes: authority.toBase58(),
         },
       },
     ],
   });
 
   return accounts.map(({ pubkey, account }) => {
-    const decoded = program.coder.accounts.decode("metadataAccount2", account.data);
+    const decoded = program.coder.accounts.decode(
+      accountType.charAt(0).toLowerCase() + accountType.slice(1),
+      account.data
+    );
     return {
       address: pubkey,
       dataLength: decoded.dataLen,
-      dataType: Buffer.from(decoded.dataType).toString().replace(/\0+$/, '') // Remove null bytes
+      dataType: Buffer.from(decoded.dataType).toString().replace(/\0+$/, ""),
+      programId: decoded.programId,
     };
   });
+}
+
+async function listBuffers(
+  authority: PublicKey,
+  rpcUrl: string
+): Promise<
+  Array<{
+    address: PublicKey;
+    dataLength: number;
+    dataType: string;
+    programId: PublicKey;
+  }>
+> {
+  return listAccountsByType(authority, rpcUrl, "MetadataBuffer");
+}
+
+async function listPDAs(
+  authority: PublicKey,
+  rpcUrl: string
+): Promise<
+  Array<{
+    address: PublicKey;
+    dataLength: number;
+    dataType: string;
+    programId: PublicKey;
+  }>
+> {
+  return listAccountsByType(authority, rpcUrl, "MetadataAccount2");
 }
 
 export {
@@ -1211,4 +1271,6 @@ export {
   getSetBufferTransaction,
   closeBuffer,
   listBuffers,
+  listPDAs,
+  listAccountsByType,
 };
