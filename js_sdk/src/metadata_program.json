@@ -9,16 +9,7 @@
   "instructions": [
     {
       "name": "close_buffer",
-      "discriminator": [
-        46,
-        114,
-        179,
-        58,
-        57,
-        45,
-        194,
-        172
-      ],
+      "discriminator": [46, 114, 179, 58, 57, 45, 194, 172],
       "accounts": [
         {
           "name": "buffer",
@@ -33,16 +24,7 @@
     },
     {
       "name": "close_metadata_account_1",
-      "discriminator": [
-        214,
-        59,
-        103,
-        132,
-        141,
-        70,
-        199,
-        195
-      ],
+      "discriminator": [214, 59, 103, 132, 141, 70, 199, 195],
       "accounts": [
         {
           "name": "metadata_account",
@@ -57,16 +39,7 @@
     },
     {
       "name": "close_metadata_account_2",
-      "discriminator": [
-        121,
-        166,
-        201,
-        151,
-        202,
-        148,
-        168,
-        175
-      ],
+      "discriminator": [121, 166, 201, 151, 202, 148, 168, 175],
       "accounts": [
         {
           "name": "metadata_account",
@@ -81,16 +54,7 @@
     },
     {
       "name": "create_buffer",
-      "discriminator": [
-        175,
-        76,
-        101,
-        74,
-        224,
-        249,
-        104,
-        170
-      ],
+      "discriminator": [175, 76, 101, 74, 224, 249, 104, 170],
       "accounts": [
         {
           "name": "buffer",
@@ -110,16 +74,7 @@
     },
     {
       "name": "initialize",
-      "discriminator": [
-        175,
-        175,
-        109,
-        31,
-        13,
-        152,
-        155,
-        237
-      ],
+      "discriminator": [175, 175, 109, 31, 13, 152, 155, 237],
       "accounts": [
         {
           "name": "pda",
@@ -166,16 +121,7 @@
     },
     {
       "name": "initialize_with_signer_seed",
-      "discriminator": [
-        55,
-        45,
-        87,
-        223,
-        169,
-        179,
-        103,
-        71
-      ],
+      "discriminator": [55, 45, 87, 223, 169, 179, 103, 71],
       "accounts": [
         {
           "name": "pda",
@@ -226,16 +172,7 @@
     },
     {
       "name": "resize",
-      "discriminator": [
-        74,
-        27,
-        74,
-        155,
-        56,
-        134,
-        175,
-        125
-      ],
+      "discriminator": [74, 27, 74, 155, 56, 134, 175, 125],
       "accounts": [
         {
           "name": "pda",
@@ -263,16 +200,7 @@
     },
     {
       "name": "set_authority",
-      "discriminator": [
-        133,
-        250,
-        37,
-        21,
-        110,
-        163,
-        26,
-        121
-      ],
+      "discriminator": [133, 250, 37, 21, 110, 163, 26, 121],
       "accounts": [
         {
           "name": "pda",
@@ -281,9 +209,7 @@
         {
           "name": "authority",
           "signer": true,
-          "relations": [
-            "pda"
-          ]
+          "relations": ["pda"]
         }
       ],
       "args": [
@@ -295,16 +221,7 @@
     },
     {
       "name": "set_buffer",
-      "discriminator": [
-        13,
-        212,
-        241,
-        0,
-        78,
-        93,
-        17,
-        51
-      ],
+      "discriminator": [13, 212, 241, 0, 78, 93, 17, 51],
       "accounts": [
         {
           "name": "buffer",
@@ -316,29 +233,21 @@
         },
         {
           "name": "authority",
-          "signer": true,
-          "relations": [
-            "pda"
-          ]
+          "signer": true
         },
         {
           "name": "program_id"
+        },
+        {
+          "name": "program_data",
+          "docs": ["The program data account containing the upgrade authority"]
         }
       ],
       "args": []
     },
     {
       "name": "write_buffer",
-      "discriminator": [
-        164,
-        194,
-        69,
-        154,
-        75,
-        169,
-        228,
-        85
-      ],
+      "discriminator": [164, 194, 69, 154, 75, 169, 228, 85],
       "accounts": [
         {
           "name": "buffer",
@@ -365,29 +274,11 @@
   "accounts": [
     {
       "name": "MetadataAccount",
-      "discriminator": [
-        32,
-        224,
-        226,
-        224,
-        77,
-        64,
-        109,
-        234
-      ]
+      "discriminator": [32, 224, 226, 224, 77, 64, 109, 234]
     },
     {
       "name": "MetadataAccount2",
-      "discriminator": [
-        217,
-        197,
-        213,
-        23,
-        62,
-        14,
-        230,
-        192
-      ]
+      "discriminator": [217, 197, 213, 23, 62, 14, 230, 192]
     }
   ],
   "errors": [
@@ -415,6 +306,16 @@
       "code": 6004,
       "name": "DataTypeTooLong",
       "msg": "Data type is too long"
+    },
+    {
+      "code": 6005,
+      "name": "InvalidAuthority",
+      "msg": "Invalid authority"
+    },
+    {
+      "code": 6006,
+      "name": "WrongProgramId",
+      "msg": "Wrong program ID"
     }
   ],
   "types": [
@@ -430,10 +331,7 @@
           {
             "name": "data_type",
             "type": {
-              "array": [
-                "u8",
-                16
-              ]
+              "array": ["u8", 16]
             }
           },
           {
@@ -455,10 +353,7 @@
           {
             "name": "data_type",
             "type": {
-              "array": [
-                "u8",
-                16
-              ]
+              "array": ["u8", 16]
             }
           },
           {

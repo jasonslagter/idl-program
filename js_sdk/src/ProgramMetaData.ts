@@ -206,7 +206,9 @@ async function uploadGenericDataBySeed(
     dataType,
     exportOnly
   );
-  console.log("Buffer set and buffer closed");
+  if (!exportOnly) {
+    console.log("Buffer set and buffer closed");
+  }
   return result;
 }
 
@@ -386,6 +388,16 @@ async function setBuffer(
   anchor.setProvider(provider);
   const program = new anchor.Program(IDL as MetadataProgram, provider);
 
+  // Get program data address
+  const programAccountInfo = await connection.getAccountInfo(programId);
+  if (!programAccountInfo) {
+    throw new Error("Program account not found");
+  }
+  const [programDataAddress] = await PublicKey.findProgramAddress(
+    [programId.toBuffer()],
+    programAccountInfo.owner
+  );
+
   const metadataAccount = getMetadataAddressBySeed(
     programId,
     seed,
@@ -395,15 +407,6 @@ async function setBuffer(
   // If exporting, get program authority
   let authority = keypair.publicKey;
   if (exportOnly) {
-    const programAccountInfo = await connection.getAccountInfo(programId);
-    if (!programAccountInfo) {
-      throw new Error("Program account not found");
-    }
-    const programLoader = programAccountInfo.owner;
-    const [programDataAddress] = await PublicKey.findProgramAddress(
-      [programId.toBuffer()],
-      programLoader
-    );
     const programDataInfo = await connection.getAccountInfo(programDataAddress);
     if (!programDataInfo) {
       throw new Error("Program data account not found");
@@ -495,6 +498,7 @@ async function setBuffer(
       buffer: bufferAddress,
       authority: authority,
       programId: programId,
+      programData: programDataAddress,
     })
     .instruction();
 
@@ -1128,6 +1132,67 @@ async function getSetBufferTransaction(
   return tx;
 }
 
+async function closeBuffer(
+  bufferAddress: PublicKey,
+  authority: Keypair,
+  rpcUrl: string,
+  priorityFees: number = 100000
+): Promise<void> {
+  const { connection, provider, program } = setupConnection(rpcUrl, authority);
+
+  const closeInstruction = await program.methods
+    .closeBuffer()
+    .accountsPartial({
+      buffer: bufferAddress,
+      authority: authority.publicKey,
+    })
+    .instruction();
+
+  const tx = await createTransaction(connection, authority.publicKey, priorityFees);
+
+  tx.add(closeInstruction);
+  provider.wallet.signTransaction(tx);
+
+  await withRetry(async () => {
+    const signature = await connection.sendRawTransaction(tx.serialize());
+    await connection.confirmTransaction(signature, "confirmed");
+    console.log("Close buffer signature", signature);
+  });
+}
+
+async function listBuffers(
+  authority: PublicKey,
+  rpcUrl: string,
+): Promise<Array<{address: PublicKey, dataLength: number, dataType: string}>> {
+  const connection = new anchor.web3.Connection(rpcUrl);
+  const program = new anchor.Program(IDL as MetadataProgram, new anchor.AnchorProvider(
+    connection,
+    new anchor.Wallet(Keypair.generate()),
+    {}
+  ));
+
+  // Get all accounts owned by our program
+  const accounts = await connection.getProgramAccounts(program.programId, {
+    filters: [
+      {
+        memcmp: {
+          offset: 8, // After discriminator
+          bytes: authority.toBase58(), // Filter by authority
+        },
+      },
+    ],
+  });
+
+  return accounts.map(({ pubkey, account }) => {
+    const decoded = program.coder.accounts.decode("metadataAccount2", account.data);
+    return {
+      address: pubkey,
+      dataLength: decoded.dataLen,
+      dataType: Buffer.from(decoded.dataType).toString().replace(/\0+$/, '') // Remove null bytes
+    };
+  });
+}
+
 export {
   uploadIdlByJsonPath,
   uploadIdlUrl,
@@ -1144,4 +1209,6 @@ export {
   ProgramMetaData,
   getInitializeInstruction,
   getSetBufferTransaction,
+  closeBuffer,
+  listBuffers,
 };

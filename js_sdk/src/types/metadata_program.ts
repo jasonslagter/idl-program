@@ -240,10 +240,13 @@ export type MetadataProgram = {
         {
           name: "authority";
           signer: true;
-          relations: ["pda"];
         },
         {
           name: "programId";
+        },
+        {
+          name: "programData";
+          docs: ["The program data account containing the upgrade authority"];
         }
       ];
       args: [];
@@ -309,6 +312,16 @@ export type MetadataProgram = {
       code: 6004;
       name: "dataTypeTooLong";
       msg: "Data type is too long";
+    },
+    {
+      code: 6005;
+      name: "invalidAuthority";
+      msg: "Invalid authority";
+    },
+    {
+      code: 6006;
+      name: "wrongProgramId";
+      msg: "Wrong program ID";
     }
   ];
   types: [

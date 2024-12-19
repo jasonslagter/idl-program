@@ -260,7 +260,6 @@ describe("Test metadata program with idl and program metadata", () => {
     const messageBytes = bs58.decode(result.base58);
     const message = anchor.web3.Message.from(Buffer.from(messageBytes));
     const transaction = anchor.web3.Transaction.populate(message);
-    console.log("Init and set buffer instruction", transaction);
 
     // Set the blockhash and fee payer
     const { blockhash } = await connection.getLatestBlockhash();

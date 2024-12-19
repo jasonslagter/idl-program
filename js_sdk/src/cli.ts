@@ -11,6 +11,8 @@ import {
   fetchProgramMetadata,
   closeProgramMetadata1,
   closeProgramMetadata2,
+  closeBuffer,
+  listBuffers,
 } from "./ProgramMetaData";
 import fs from "fs";
 import os from "os";
@@ -167,7 +169,7 @@ idlCommand
       );
 
       if (options.exportOnly && result) {
-        console.log("Exported transaction:");
+        console.log("Exported setBuffer transaction with programAuthority as signer:");
         console.log("Base58:", result.base58);
         console.log("Base64:", result.base64);
       } else {
@@ -234,7 +236,7 @@ idlCommand
       );
 
       if (options.exportOnly && result) {
-        console.log("Exported transaction:");
+        console.log("Exported setBuffer transaction with programAuthority as signer:");
         console.log("Base58:", result.base58);
         console.log("Base64:", result.base64);
       } else {
@@ -341,7 +343,7 @@ metadataCommand
       );
 
       if (options.exportOnly && result) {
-        console.log("Exported transaction:");
+        console.log("Exported setBuffer transaction with programAuthority as signer:");
         console.log("Base58:", result.base58);
         console.log("Base64:", result.base64);
       } else {
@@ -408,7 +410,7 @@ metadataCommand
       );
 
       if (options.exportOnly && result) {
-        console.log("Exported transaction:");
+        console.log("Exported setBuffer transaction with programAuthority as signer:");
         console.log("Base58:", result.base58);
         console.log("Base64:", result.base64);
       } else {
@@ -610,6 +612,83 @@ metadataCommand
     }
   });
 
+metadataCommand
+  .command("close-buffer <buffer-address>")
+  .description("Close a buffer account and recover rent")
+  .option("-k, --keypair <path>", "Path to keypair file")
+  .option(
+    "-p, --priority-fees <number>",
+    "Priority fees per compute unit",
+    "100000"
+  )
+  .option("-u, --url <string>", "Custom RPC URL")
+  .option("-ul, --url-local", "Use localhost RPC (default)")
+  .option("-ud, --url-devnet", "Use Devnet RPC")
+  .option("-um, --url-mainnet", "Use Mainnet RPC")
+  .action(async (bufferAddress, options) => {
+    try {
+      const rpcUrl = getRpcUrl(options);
+      const keypair = options.keypair
+        ? Keypair.fromSecretKey(
+            new Uint8Array(JSON.parse(fs.readFileSync(options.keypair, "utf-8")))
+          )
+        : loadDefaultKeypair();
+
+      await closeBuffer(
+        new PublicKey(bufferAddress),
+        keypair,
+        rpcUrl,
+        parseInt(options.priorityFees)
+      );
+      console.log("Buffer account closed successfully!");
+    } catch (error) {
+      console.error(
+        "Error:",
+        error instanceof Error ? error.message : "Unknown error occurred"
+      );
+      process.exit(1);
+    }
+  });
+
+metadataCommand
+  .command("list-buffers")
+  .description("List all buffer accounts owned by an authority")
+  .option("-k, --keypair <path>", "Path to keypair file")
+  .option("-u, --url <string>", "Custom RPC URL")
+  .option("-ul, --url-local", "Use localhost RPC (default)")
+  .option("-ud, --url-devnet", "Use Devnet RPC")
+  .option("-um, --url-mainnet", "Use Mainnet RPC")
+  .action(async (options) => {
+    try {
+      const rpcUrl = getRpcUrl(options);
+      const keypair = options.keypair
+        ? Keypair.fromSecretKey(
+            new Uint8Array(JSON.parse(fs.readFileSync(options.keypair, "utf-8")))
+          )
+        : loadDefaultKeypair();
+
+      const buffers = await listBuffers(keypair.publicKey, rpcUrl);
+      
+      if (buffers.length === 0) {
+        console.log("No buffers found for this authority");
+        return;
+      }
+
+      console.log("\nFound buffers:");
+      buffers.forEach(({ address, dataLength, dataType }) => {
+        console.log(`\nAddress: ${address.toBase58()}`);
+        console.log(`Data Length: ${dataLength} bytes`);
+        console.log(`Data Type: ${dataType}`);
+      });
+    } catch (error) {
+      console.error(
+        "Error:",
+        error instanceof Error ? error.message : "Unknown error occurred"
+      );
+      process.exit(1);
+    }
+  });
+
 // Helper function to load default keypair
 function loadDefaultKeypair(): Keypair {
   try {
@@ -662,7 +741,7 @@ function getRpcUrl(options: any): string {
     if (fs.existsSync(configPath)) {
       const config = fs.readFileSync(configPath, "utf8");
       const jsonUrl = config.match(/json_rpc_url: (.+)\n/)?.[1];
-      console.log("Falling back to localhost: " + jsonUrl);
+      console.log("Using RPC URL from config: " + jsonUrl);
       if (jsonUrl && jsonUrl.indexOf("localhost") > -1) {
         return LOCALHOST_URL;
       }

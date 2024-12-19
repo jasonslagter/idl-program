@@ -22,7 +22,11 @@ pub mod metadata_program {
         #[msg("The program account should not be a program data account")]
         ShouldBeProgramAccount,
         #[msg("Data type is too long")]
-        DataTypeTooLong
+        DataTypeTooLong,
+        #[msg("Invalid authority")]
+        InvalidAuthority,
+        #[msg("Wrong program ID")]
+        WrongProgramId
     }
 
     pub fn initialize(ctx: Context<Initialize>, data_type: String, _seed: String) -> Result<()> {      
@@ -181,6 +185,50 @@ pub mod metadata_program {
     }
 
     pub fn set_buffer(ctx: Context<SetBuffer>) -> Result<()> {
+        // First verify that the PDA belongs to the provided program ID
+        if ctx.accounts.pda.program_id != ctx.accounts.program_id.key() {
+            return err!(MyError::WrongProgramId);
+        }
+
+        // First check if it's the program's authority by checking program data
+        let is_program_authority = {
+            if ctx.accounts.program_id.owner.key() != bpf_loader_upgradeable::ID 
+                && ctx.accounts.program_id.owner.key() != bpf_loader::ID 
+                && ctx.accounts.program_id.owner.key() != bpf_loader_deprecated::ID {
+                return err!(MyError::NotAProgram);
+            }
+            
+            if !ctx.accounts.program_id.executable {
+                return err!(MyError::NotExecutable);
+            }
+
+            // Borrow the program's account data
+            let mut program_borrowed_data: &[u8] = &ctx.accounts.program_id.try_borrow_data()?;
+            let upgradable_loader_state = UpgradeableLoaderState::try_deserialize_unchecked(&mut program_borrowed_data)?;
+
+            match upgradable_loader_state {
+                UpgradeableLoaderState::Program { programdata_address } => {
+                    // Ensure the program data address matches
+                    if programdata_address != ctx.accounts.program_data.key() {
+                        return err!(MyError::WrongAuthority);
+                    }
+                    ctx.accounts.program_data.upgrade_authority_address == Some(ctx.accounts.authority.key())
+                },
+                _ => return err!(MyError::ShouldBeProgramAccount)
+            }
+        };
+
+        // If not program authority, then must be PDA authority
+        if !is_program_authority && ctx.accounts.pda.authority != ctx.accounts.authority.key() {
+            return err!(MyError::InvalidAuthority);
+        }
+
+        // If it's the program authority, set the PDA authority to match
+        if is_program_authority {
+            ctx.accounts.pda.authority = ctx.accounts.authority.key();
+        }
+
+        // Perform the buffer set operation
         ctx.accounts.pda.data_len = ctx.accounts.buffer.data_len;
         ctx.accounts.pda.set_data_type(&ctx.accounts.buffer.get_data_type())?;
 
@@ -330,19 +378,22 @@ pub struct WriteBuffer<'info> {
 // Accounts for upgrading the canonical MetadataAccount with the buffer.
 #[derive(Accounts)]
 pub struct SetBuffer<'info> {
-    // The buffer with the new metadata.
-    #[account(mut, constraint = buffer.authority == pda.authority)]
+    // The buffer with the new metadata. The authority of this can be anyone so that 
+    // anyone can write it. But only the program authority or the PDA authority can set the buffer.
+    #[account(mut)]
     pub buffer: Account<'info, MetadataAccount2>,
-    // The pda account to be updated with the buffer's data.
-    #[account(mut, 
-        has_one = authority,
-        constraint = pda.authority == authority.key()
-    )]
+    // The pda account to be updated with the buffer's data. There are two checks of the PDA:
+    // 1. The PDA that is the authority of the program. This is the program authority.
+    // 2. The PDA that is the authority of the program data. This is the PDA authority.
+    // So the program authority can always overwrite the PDA authority.
+    #[account(mut)]
     pub pda: Account<'info, MetadataAccount2>,
     #[account(constraint = authority.key != &ERASED_AUTHORITY)]
     pub authority: Signer<'info>,
     /// CHECK: This is the program id of the program you want to upload the IDL for.
     pub program_id: AccountInfo<'info>,
+    /// The program data account containing the upgrade authority
+    pub program_data: Account<'info, ProgramData>,
 }
 
 #[account]
