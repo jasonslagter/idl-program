@@ -231,51 +231,17 @@ async function initializeMetaDataBySeed(
     {}
   );
   anchor.setProvider(provider);
-  const program = new anchor.Program(IDL as MetadataProgram, provider);
 
-  const metadataAccountInfo = await connection.getAccountInfo(
-    metadataPdaAddress
+  const initializePdaInstruction = await getInitializeInstruction(
+    metadataPdaAddress,
+    programId,
+    seed,
+    addSignerSeed,
+    dataType,
+    provider
   );
-  if (!metadataAccountInfo) {
-    // Get the program account to find its loader (owner)
-    const programAccountInfo = await connection.getAccountInfo(programId);
-    if (!programAccountInfo) {
-      throw new IDLError("Program account not found");
-    }
 
-    const programLoader = programAccountInfo.owner;
-    console.log("Program loader", programLoader.toBase58());
-
-    const [programDataAddress] = await PublicKey.findProgramAddress(
-      [programId.toBuffer()],
-      programLoader // Use the actual program loader instead of hardcoded one
-    );
-
-    console.log("Add signer seed", addSignerSeed);
-    console.log("Signer seed", keypair.publicKey.toBase58());
-    console.log("Program data address", programDataAddress.toBase58());
-
-    var initializePdaInstruction;
-    if (addSignerSeed) {
-      initializePdaInstruction = await program.methods
-        .initializeWithSignerSeed(dataType, seed)
-        .accountsPartial({
-          pda: metadataPdaAddress,
-          programId: programId,
-          programData: programDataAddress, // Use the actual program data address
-        })
-        .instruction();
-    } else {
-      initializePdaInstruction = await program.methods
-        .initialize(dataType, seed)
-        .accountsPartial({
-          pda: metadataPdaAddress,
-          programId: programId,
-          programData: programDataAddress, // Use the actual program data address
-        })
-        .instruction();
-    }
-
+  if (initializePdaInstruction) {
     const tx = await createTransaction(
       connection,
       keypair.publicKey,
@@ -283,7 +249,7 @@ async function initializeMetaDataBySeed(
     );
     tx.add(initializePdaInstruction);
     console.log(
-      "Serialised transaction for multisig",
+      "Serialised transaction",
       bs58.encode(tx.compileMessage().serialize())
     );
     tx.sign(keypair);
@@ -1023,6 +989,62 @@ export async function closeProgramMetadata1(
   });
 }
 
+async function getInitializeInstruction(
+  metadataPdaAddress: PublicKey,
+  programId: PublicKey,
+  seed: string,
+  addSignerSeed: boolean,
+  dataType: string,
+  provider: anchor.AnchorProvider
+): Promise<anchor.web3.TransactionInstruction | null> {
+  // Check if account already exists
+  const metadataAccountInfo = await provider.connection.getAccountInfo(
+    metadataPdaAddress
+  );
+  if (metadataAccountInfo) {
+    return null;
+  }
+
+  // Get the program account to find its loader (owner)
+  const programAccountInfo = await provider.connection.getAccountInfo(
+    programId
+  );
+  if (!programAccountInfo) {
+    throw new IDLError("Program account not found");
+  }
+
+  const programLoader = programAccountInfo.owner;
+  console.log("Program loader", programLoader.toBase58());
+
+  const [programDataAddress] = await PublicKey.findProgramAddress(
+    [programId.toBuffer()],
+    programLoader
+  );
+
+  console.log("Add signer seed", addSignerSeed);
+  console.log("Program data address", programDataAddress.toBase58());
+
+  const program = new anchor.Program(IDL as MetadataProgram, provider);
+
+  return addSignerSeed
+    ? await program.methods
+        .initializeWithSignerSeed(dataType, seed)
+        .accountsPartial({
+          pda: metadataPdaAddress,
+          programId: programId,
+          programData: programDataAddress,
+        })
+        .instruction()
+    : await program.methods
+        .initialize(dataType, seed)
+        .accountsPartial({
+          pda: metadataPdaAddress,
+          programId: programId,
+          programData: programDataAddress,
+        })
+        .instruction();
+}
+
 export {
   uploadIdlByJsonPath,
   uploadIdlUrl,
@@ -1037,4 +1059,5 @@ export {
   uploadProgramMetadata,
   fetchProgramMetadata,
   ProgramMetaData,
+  getInitializeInstruction,
 };

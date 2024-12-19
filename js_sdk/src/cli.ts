@@ -488,7 +488,9 @@ metadataCommand
       const rpcUrl = getRpcUrl(options);
       const keypair = options.keypair
         ? Keypair.fromSecretKey(
-            new Uint8Array(JSON.parse(fs.readFileSync(options.keypair, "utf-8")))
+            new Uint8Array(
+              JSON.parse(fs.readFileSync(options.keypair, "utf-8"))
+            )
           )
         : loadDefaultKeypair();
 
