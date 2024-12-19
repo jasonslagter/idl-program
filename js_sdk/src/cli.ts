@@ -133,6 +133,7 @@ idlCommand
     "Add signer's public key as additional seed. This will create a non associated metadata account. ",
     false
   )
+  .option("--export-only", "Only create buffer and export setBuffer transaction")
   .action(async (file, programId, options) => {
     try {
       const rpcUrl = getRpcUrl(options);
@@ -155,15 +156,23 @@ idlCommand
         return;
       }
 
-      await uploadIdlByJsonPath(
+      const result = await uploadIdlByJsonPath(
         file,
         new PublicKey(programId),
         keypair,
         rpcUrl,
         parseInt(options.priorityFees),
-        options.addSignerSeed
+        options.addSignerSeed,
+        options.exportOnly
       );
-      console.log("IDL uploaded successfully!");
+
+      if (options.exportOnly && result) {
+        console.log("Exported transaction:");
+        console.log("Base58:", result.base58);
+        console.log("Base64:", result.base64);
+      } else {
+        console.log("IDL uploaded successfully!");
+      }
     } catch (error) {
       console.error(
         "Error:",
@@ -191,6 +200,7 @@ idlCommand
     "Add signer's public key as additional seed. This will create a non associated metadata account. ",
     false
   )
+  .option("--export-only", "Only create buffer and export setBuffer transaction")
   .action(async (url, programId, options) => {
     try {
       const rpcUrl = getRpcUrl(options);
@@ -202,15 +212,34 @@ idlCommand
           )
         : loadDefaultKeypair();
 
-      await uploadIdlUrl(
+      const isAuthority = await checkProgramAuthority(
+        new PublicKey(programId),
+        keypair.publicKey,
+        rpcUrl
+      );
+
+      if (!isAuthority) {
+        console.warn(AUTHORITY_WARNING_MESSAGE);
+        return;
+      }
+
+      const result = await uploadIdlUrl(
         url,
         new PublicKey(programId),
         keypair,
         rpcUrl,
         parseInt(options.priorityFees),
-        options.addSignerSeed
+        options.addSignerSeed,
+        options.exportOnly
       );
-      console.log("IDL URL uploaded successfully!");
+
+      if (options.exportOnly && result) {
+        console.log("Exported transaction:");
+        console.log("Base58:", result.base58);
+        console.log("Base64:", result.base64);
+      } else {
+        console.log("IDL URL uploaded successfully!");
+      }
     } catch (error) {
       console.error(
         "Error:",
@@ -279,6 +308,7 @@ metadataCommand
     "Add signer's public key as additional seed. This will create a non associated metadata account. ",
     false
   )
+  .option("--export-only", "Only create buffer and export setBuffer transaction")
   .action(async (file, programId, options) => {
     try {
       const rpcUrl = getRpcUrl(options);
@@ -301,7 +331,7 @@ metadataCommand
         return;
       }
 
-      await uploadProgramMetadataByJsonPath(
+      const result = await uploadProgramMetadataByJsonPath(
         file,
         new PublicKey(programId),
         keypair,
@@ -309,7 +339,14 @@ metadataCommand
         parseInt(options.priorityFees),
         options.addSignerSeed
       );
-      console.log("Metadata uploaded successfully!");
+
+      if (options.exportOnly && result) {
+        console.log("Exported transaction:");
+        console.log("Base58:", result.base58);
+        console.log("Base64:", result.base64);
+      } else {
+        console.log("Metadata uploaded successfully!");
+      }
     } catch (error) {
       console.error(
         "Error:",
@@ -337,6 +374,7 @@ metadataCommand
     "Add signer's public key as additional seed. This will create a non associated metadata account. ",
     false
   )
+  .option("--export-only", "Only create buffer and export setBuffer transaction")
   .action(async (url, programId, options) => {
     try {
       const rpcUrl = getRpcUrl(options);
@@ -348,15 +386,34 @@ metadataCommand
           )
         : loadDefaultKeypair();
 
-      await uploadProgramMetadataByUrl(
+      const isAuthority = await checkProgramAuthority(
+        new PublicKey(programId),
+        keypair.publicKey,
+        rpcUrl
+      );
+
+      if (!isAuthority) {
+        console.warn(AUTHORITY_WARNING_MESSAGE);
+        return;
+      }
+
+      const result = await uploadProgramMetadataByUrl(
         url,
         new PublicKey(programId),
         keypair,
         rpcUrl,
         parseInt(options.priorityFees),
-        options.addSignerSeed
+        options.addSignerSeed,
+        options.exportOnly
       );
-      console.log("Metadata URL uploaded successfully!");
+
+      if (options.exportOnly && result) {
+        console.log("Exported transaction:");
+        console.log("Base58:", result.base58);
+        console.log("Base64:", result.base64);
+      } else {
+        console.log("Metadata URL uploaded successfully!");
+      }
     } catch (error) {
       console.error(
         "Error:",

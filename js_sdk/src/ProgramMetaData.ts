@@ -5,6 +5,7 @@ import IDL from "./metadata_program.json";
 import * as anchor from "@coral-xyz/anchor";
 import { inflate, deflate } from "pako";
 import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
+import { decodeUpgradeableLoaderState } from "@coral-xyz/anchor/dist/cjs/utils/registry";
 
 const CHUNK_SIZE = 900;
 const MAX_RESIZE_STEP = 10240;
@@ -82,8 +83,9 @@ async function uploadIdlByJsonPath(
   keypair: Keypair,
   rpcUrl: string,
   priorityFeesPerCU: number,
-  addSignerSeed: boolean = false
-) {
+  addSignerSeed: boolean = false,
+  exportOnly: boolean
+): Promise<void | ExportedTransaction> {
   if (!fs.existsSync(idlPath)) {
     throw new IDLError(`File not found: ${idlPath}`);
   }
@@ -91,7 +93,7 @@ async function uploadIdlByJsonPath(
     throw new IDLError("Priority fees cannot be negative");
   }
   let buffer: Buffer = fs.readFileSync(idlPath);
-  await uploadGenericDataBySeed(
+  return await uploadGenericDataBySeed(
     buffer,
     programId,
     keypair,
@@ -99,7 +101,8 @@ async function uploadIdlByJsonPath(
     priorityFeesPerCU,
     IDL_SEED,
     addSignerSeed,
-    DATA_TYPE_IDL_JSON
+    DATA_TYPE_IDL_JSON,
+    exportOnly
   );
 }
 
@@ -118,10 +121,11 @@ async function uploadIdlUrl(
   keypair: Keypair,
   rpcUrl: string,
   priorityFeesPerCU: number,
-  addSignerSeed: boolean = false
-) {
+  addSignerSeed: boolean = false,
+  exportOnly: boolean
+): Promise<void | ExportedTransaction> {
   let buffer: Buffer = Buffer.from(url, "utf8");
-  await uploadGenericDataBySeed(
+  return await uploadGenericDataBySeed(
     buffer,
     programId,
     keypair,
@@ -129,7 +133,8 @@ async function uploadIdlUrl(
     priorityFeesPerCU,
     IDL_SEED,
     addSignerSeed,
-    DATA_TYPE_IDL_URL
+    DATA_TYPE_IDL_URL,
+    exportOnly
   );
 }
 
@@ -151,8 +156,9 @@ async function uploadGenericDataBySeed(
   priorityFeesPerCU: number,
   seed: string,
   addSignerSeed: boolean = false,
-  dataType: string
-) {
+  dataType: string,
+  exportOnly: boolean
+): Promise<void | ExportedTransaction> {
   if (dataType.length > DATA_TYPE_LENGTH) {
     throw new IDLError(
       `Data type too long, max length is ${DATA_TYPE_LENGTH} bytes`
@@ -189,7 +195,7 @@ async function uploadGenericDataBySeed(
   console.log("Buffer written");
 
   // Set buffer (which will also initialize if needed) and wait for confirmation
-  await setBuffer(
+  var result = await setBuffer(
     bufferAddress.publicKey,
     programId,
     keypair,
@@ -197,60 +203,11 @@ async function uploadGenericDataBySeed(
     priorityFeesPerCU,
     seed,
     addSignerSeed,
-    dataType
+    dataType,
+    exportOnly
   );
   console.log("Buffer set and buffer closed");
-}
-
-async function initializeMetaDataBySeed(
-  metadataPdaAddress: PublicKey,
-  programId: PublicKey,
-  keypair: Keypair,
-  rpcUrl: string,
-  priorityFeesPerCU: number,
-  seed: string,
-  addSignerSeed: boolean = false,
-  dataType: string
-) {
-  const connection = new anchor.web3.Connection(rpcUrl, "confirmed");
-  const provider = new anchor.AnchorProvider(
-    connection,
-    new anchor.Wallet(keypair),
-    {}
-  );
-  anchor.setProvider(provider);
-
-  const initializePdaInstruction = await getInitializeInstruction(
-    metadataPdaAddress,
-    programId,
-    seed,
-    addSignerSeed,
-    dataType,
-    provider
-  );
-
-  if (initializePdaInstruction) {
-    const tx = await createTransaction(
-      connection,
-      keypair.publicKey,
-      priorityFeesPerCU
-    );
-    tx.add(initializePdaInstruction);
-    console.log(
-      "Serialised transaction",
-      bs58.encode(tx.compileMessage().serialize())
-    );
-    tx.sign(keypair);
-    provider.wallet.signTransaction(tx);
-
-    await withRetry(async () => {
-      const signature = await connection.sendRawTransaction(tx.serialize());
-      await connection.confirmTransaction(signature);
-      console.log("Create IDL PDA signature", signature);
-    });
-  } else {
-    console.log("Metadata account already exists");
-  }
+  return result;
 }
 
 async function setAuthority(
@@ -404,6 +361,11 @@ async function writeBuffer(
   console.log("Write buffer was successfully!");
 }
 
+interface ExportedTransaction {
+  base58: string;
+  base64: string;
+}
+
 async function setBuffer(
   bufferAddress: PublicKey,
   programId: PublicKey,
@@ -412,8 +374,9 @@ async function setBuffer(
   priorityFeesPerCU: number,
   seed: string,
   addSignerSeed: boolean = false,
-  dataType: string
-) {
+  dataType: string,
+  exportOnly: boolean
+): Promise<void | ExportedTransaction> {
   const connection = new anchor.web3.Connection(rpcUrl, "confirmed");
   const provider = new anchor.AnchorProvider(
     connection,
@@ -429,11 +392,31 @@ async function setBuffer(
     addSignerSeed ? keypair.publicKey : undefined
   );
 
-  const tx = await createTransaction(
-    connection,
-    keypair.publicKey,
-    priorityFeesPerCU
-  );
+  // If exporting, get program authority
+  let authority = keypair.publicKey;
+  if (exportOnly) {
+    const programAccountInfo = await connection.getAccountInfo(programId);
+    if (!programAccountInfo) {
+      throw new Error("Program account not found");
+    }
+    const programLoader = programAccountInfo.owner;
+    const [programDataAddress] = await PublicKey.findProgramAddress(
+      [programId.toBuffer()],
+      programLoader
+    );
+    const programDataInfo = await connection.getAccountInfo(programDataAddress);
+    if (!programDataInfo) {
+      throw new Error("Program data account not found");
+    }
+    const decoded = decodeUpgradeableLoaderState(programDataInfo.data);
+    if (decoded.programData.upgradeAuthorityAddress) {
+      authority = new PublicKey(decoded.programData.upgradeAuthorityAddress);
+    } else {
+      throw new Error("Program has no authority");
+    }
+  }
+
+  const tx = await createTransaction(connection, authority, priorityFeesPerCU);
 
   // Get buffer size first
   const bufferAccountInfo = await connection.getAccountInfo(bufferAddress);
@@ -452,10 +435,12 @@ async function setBuffer(
     provider
   );
 
+  const metadataAccountInfo = await connection.getAccountInfo(metadataAccount);
+
   if (initInstruction) {
     tx.add(initInstruction);
-    
-    // If we're initializing, we need to resize to match buffer size
+
+    // Always resize after initialization
     let leftOverToResize = bufferAccountSize;
     while (leftOverToResize > 0) {
       const chunkSize = Math.min(MAX_RESIZE_STEP, leftOverToResize);
@@ -470,37 +455,35 @@ async function setBuffer(
       tx.add(resizeInstruction);
       leftOverToResize -= chunkSize;
     }
-  } else {
-    // For existing accounts, handle resize as before
-    const metadataAccountInfo = await connection.getAccountInfo(metadataAccount);
-    if (metadataAccountInfo) {
-      let metadataAccountSize = metadataAccountInfo.data.length;
-      
-      if (bufferAccountSize < metadataAccountSize) {
+  } else if (metadataAccountInfo) {
+    // Handle resize for existing accounts
+    let metadataAccountSize = metadataAccountInfo.data.length;
+
+    if (bufferAccountSize < metadataAccountSize) {
+      const resizeInstruction = await program.methods
+        .resize(bufferAccountSize)
+        .accountsPartial({
+          pda: metadataAccount,
+          programId: programId,
+        })
+        .instruction();
+      tx.add(resizeInstruction);
+    } else if (bufferAccountSize > metadataAccountSize) {
+      let leftOverToResize = bufferAccountSize - metadataAccountSize;
+      while (leftOverToResize > 0) {
+        const chunkSize = Math.min(MAX_RESIZE_STEP, leftOverToResize);
+        metadataAccountSize += chunkSize;
         const resizeInstruction = await program.methods
-          .resize(bufferAccountSize)
+          .resize(metadataAccountSize)
           .accountsPartial({
             pda: metadataAccount,
             programId: programId,
           })
           .instruction();
-        tx.add(resizeInstruction);
-      } else if (bufferAccountSize > metadataAccountSize) {
-        let leftOverToResize = bufferAccountSize - metadataAccountSize;
-        while (leftOverToResize > 0) {
-          const chunkSize = Math.min(MAX_RESIZE_STEP, leftOverToResize);
-          metadataAccountSize += chunkSize;
-          const resizeInstruction = await program.methods
-            .resize(metadataAccountSize)
-            .accountsPartial({
-              pda: metadataAccount,
-              programId: programId,
-            })
-            .instruction();
 
-          tx.add(resizeInstruction);
-          leftOverToResize -= chunkSize;
-        }
+        tx.add(resizeInstruction);
+        console.log(`Resize to ${chunkSize} left over ${leftOverToResize}`);
+        leftOverToResize -= chunkSize;
       }
     }
   }
@@ -510,7 +493,7 @@ async function setBuffer(
     .accountsPartial({
       pda: metadataAccount,
       buffer: bufferAddress,
-      authority: keypair.publicKey,
+      authority: authority,
       programId: programId,
     })
     .instruction();
@@ -526,10 +509,13 @@ async function setBuffer(
 
   tx.add(closeBufferInstruction);
 
-  console.log(
-    "Serialised transaction",
-    bs58.encode(tx.compileMessage().serialize())
-  );
+  if (exportOnly) {
+    return {
+      base58: bs58.encode(tx.compileMessage().serialize()),
+      base64: Buffer.from(tx.compileMessage().serialize()).toString("base64"),
+    };
+  }
+
   provider.wallet.signTransaction(tx);
 
   await withRetry(async () => {
@@ -709,7 +695,8 @@ async function uploadProgramMetadata(
   keypair: Keypair,
   rpcUrl: string,
   priorityFeesPerCU: number,
-  addSignerSeed: boolean = false
+  addSignerSeed: boolean = false,
+  exportOnly: boolean
 ) {
   // Validate required fields
   if (!metadata.name) {
@@ -733,7 +720,8 @@ async function uploadProgramMetadata(
     priorityFeesPerCU,
     PROGRAM_METADATA_SEED,
     addSignerSeed,
-    DATA_TYPE_META_JSON
+    DATA_TYPE_META_JSON,
+    exportOnly
   );
 }
 
@@ -818,47 +806,54 @@ async function fetchProgramMetadata(
   }
 }
 
-/**
- * Uploads program metadata from a JSON file
- * @param {string} metadataPath - Path to metadata JSON file
- * @param {PublicKey} programId - Program ID
- * @param {Keypair} keypair - Keypair for transaction signing
- * @param {string} rpcUrl - RPC URL for the connection
- * @param {number} priorityFeesPerCU - Priority fees per compute unit
- * @param {boolean} addSignerSeed - Whether to add signer's public key as additional seed (optional, defaults to false)
- * @throws {IDLError} If file not found or upload fails
- */
+interface ExportedTransaction {
+  base58: string;
+  base64: string;
+}
+
 async function uploadProgramMetadataByJsonPath(
   metadataPath: string,
   programId: PublicKey,
   keypair: Keypair,
   rpcUrl: string,
   priorityFeesPerCU: number,
-  addSignerSeed: boolean = false
-) {
-  if (!fs.existsSync(metadataPath)) {
-    throw new IDLError(`File not found: ${metadataPath}`);
-  }
-  if (priorityFeesPerCU < 0) {
-    throw new IDLError("Priority fees cannot be negative");
-  }
-
-  const fileContent = fs.readFileSync(metadataPath, "utf8");
-  let metadata: ProgramMetaData;
+  addSignerSeed: boolean = false,
+  exportOnly: boolean = false
+): Promise<ExportedTransaction | void> {
   try {
-    metadata = JSON.parse(fileContent) as ProgramMetaData;
-  } catch (error) {
-    throw new IDLError("Invalid JSON format in metadata file");
-  }
+    if (!fs.existsSync(metadataPath)) {
+      throw new IDLError(`File not found: ${metadataPath}`);
+    }
 
-  await uploadProgramMetadata(
-    metadata,
-    programId,
-    keypair,
-    rpcUrl,
-    priorityFeesPerCU,
-    addSignerSeed
-  );
+    // Read and validate metadata
+    const metadata = JSON.parse(
+      fs.readFileSync(metadataPath, "utf-8")
+    ) as ProgramMetaData;
+    if (!metadata.name) {
+      throw new IDLError("Missing required metadata fields");
+    }
+    if (metadata.expiry && !/^\d{4}-\d{2}-\d{2}$/.test(metadata.expiry)) {
+      throw new IDLError("Expiry date must be in YYYY-MM-DD format");
+    }
+
+    const metadataBuffer = Buffer.from(JSON.stringify(metadata));
+    return await uploadGenericDataBySeed(
+      metadataBuffer,
+      programId,
+      keypair,
+      rpcUrl,
+      priorityFeesPerCU,
+      PROGRAM_METADATA_SEED,
+      addSignerSeed,
+      DATA_TYPE_META_JSON,
+      exportOnly
+    );
+  } catch (error) {
+    if (error instanceof Error) {
+      throw new IDLError(`Failed to process metadata file: ${error.message}`);
+    }
+    throw new IDLError("Failed to process metadata file: Unknown error");
+  }
 }
 
 /**
@@ -877,8 +872,9 @@ async function uploadProgramMetadataByUrl(
   keypair: Keypair,
   rpcUrl: string,
   priorityFeesPerCU: number,
-  addSignerSeed: boolean = false
-) {
+  addSignerSeed: boolean = false,
+  exportOnly: boolean
+): Promise<void | ExportedTransaction> {
   try {
     // Check that the URL is actually a metadata json
     // If you want to upload some generic data use uploadGenericDataBySeed instead
@@ -902,7 +898,7 @@ async function uploadProgramMetadataByUrl(
 
     // Convert metadata to buffer
     const metadataUrlBuffer = Buffer.from(url.toString(), "utf8");
-    await uploadGenericDataBySeed(
+    return await uploadGenericDataBySeed(
       metadataUrlBuffer,
       programId,
       keypair,
@@ -910,7 +906,8 @@ async function uploadProgramMetadataByUrl(
       priorityFeesPerCU,
       PROGRAM_METADATA_SEED,
       addSignerSeed,
-      DATA_TYPE_META_URL
+      DATA_TYPE_META_URL,
+      exportOnly
     );
   } catch (error) {
     if (error instanceof IDLError) {
@@ -1062,6 +1059,75 @@ async function getInitializeInstruction(
         .instruction();
 }
 
+async function getSetBufferTransaction(
+  bufferAddress: PublicKey,
+  programId: PublicKey,
+  authority: PublicKey,
+  rpcUrl: string,
+  priorityFeesPerCU: number,
+  seed: string,
+  addSignerSeed: boolean,
+  dataType: string
+): Promise<anchor.web3.Transaction> {
+  const connection = new anchor.web3.Connection(rpcUrl, "confirmed");
+  const provider = new anchor.AnchorProvider(
+    connection,
+    new anchor.Wallet(Keypair.generate()), // Dummy wallet since we're just building tx
+    {}
+  );
+  const program = new anchor.Program(IDL as MetadataProgram, provider);
+
+  const metadataAccount = getMetadataAddressBySeed(
+    programId,
+    seed,
+    addSignerSeed ? authority : undefined
+  );
+
+  const tx = new anchor.web3.Transaction();
+  tx.feePayer = authority;
+
+  if (priorityFeesPerCU > 0) {
+    const priorityFeeInstruction =
+      anchor.web3.ComputeBudgetProgram.setComputeUnitPrice({
+        microLamports: priorityFeesPerCU,
+      });
+    tx.add(priorityFeeInstruction);
+  }
+
+  // Add init/resize/setBuffer instructions as needed
+  const initInstruction = await getInitializeInstruction(
+    metadataAccount,
+    programId,
+    seed,
+    addSignerSeed,
+    dataType,
+    provider
+  );
+
+  if (initInstruction) {
+    tx.add(initInstruction);
+  }
+
+  const bufferAccountInfo = await connection.getAccountInfo(bufferAddress);
+  if (!bufferAccountInfo) {
+    throw new Error("Buffer account not found");
+  }
+
+  const setBufferInstruction = await program.methods
+    .setBuffer()
+    .accountsPartial({
+      pda: metadataAccount,
+      buffer: bufferAddress,
+      authority: authority,
+      programId: programId,
+    })
+    .instruction();
+
+  tx.add(setBufferInstruction);
+
+  return tx;
+}
+
 export {
   uploadIdlByJsonPath,
   uploadIdlUrl,
@@ -1077,4 +1143,5 @@ export {
   fetchProgramMetadata,
   ProgramMetaData,
   getInitializeInstruction,
+  getSetBufferTransaction,
 };

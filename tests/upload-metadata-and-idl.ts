@@ -14,8 +14,9 @@ import {
 } from "../js_sdk/src/ProgramMetaData";
 import { assert } from "chai";
 import { inflate } from "pako";
-import { Keypair, PublicKey } from "@solana/web3.js";
+import { Keypair, PublicKey, Transaction } from "@solana/web3.js";
 import { MetadataProgram } from "../target/types/metadata_program";
+import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 
 const IDL_PATH = "./tests/testidl.json";
 const META_DATA_JSON = "./tests/metadata.json";
@@ -233,6 +234,58 @@ describe("Test metadata program with idl and program metadata", () => {
       metadata.logo,
       LogoUrl,
       "The saved string should match the input URL"
+    );
+  });
+
+  it("Test export-only buffer creation and transaction execution", async () => {
+    const LogoUrl =
+      "https://upload.wikimedia.org/wikipedia/en/b/b9/Solana_logo.png";
+
+    // First, get the exported transaction
+    const result = await uploadProgramMetadataByJsonPath(
+      META_DATA_JSON,
+      TEST_IDL_PROGRAM,
+      keypair,
+      rpcUrl,
+      0,
+      false,
+      true // exportOnly = true
+    );
+
+    assert.ok(result, "Should return serialized transaction");
+    assert.ok(result.base58, "Should have base58 encoded transaction");
+    assert.ok(result.base64, "Should have base64 encoded transaction");
+
+    // Create new transaction from the serialized message
+    const messageBytes = bs58.decode(result.base58);
+    const message = anchor.web3.Message.from(Buffer.from(messageBytes));
+    const transaction = anchor.web3.Transaction.populate(message);
+    console.log("Init and set buffer instruction", transaction);
+
+    // Set the blockhash and fee payer
+    const { blockhash } = await connection.getLatestBlockhash();
+    transaction.recentBlockhash = blockhash;
+    transaction.feePayer = keypair.publicKey;
+
+    // Clear any existing signatures and sign fresh
+    transaction.signatures = [];
+    transaction.sign(keypair);
+
+    const rawTransaction = transaction.serialize();
+    const signature = await connection.sendRawTransaction(rawTransaction, {
+      skipPreflight: false,
+      preflightCommitment: "confirmed",
+    });
+    await connection.confirmTransaction(signature, "confirmed");
+
+    // Verify the metadata was written correctly
+    const metadata = await fetchProgramMetadata(TEST_IDL_PROGRAM, rpcUrl);
+    console.log("Metadata after sending exported transaction:", metadata);
+
+    assert.equal(
+      metadata.logo,
+      LogoUrl,
+      "The saved metadata should match the input"
     );
   });
 });
