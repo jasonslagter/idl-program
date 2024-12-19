@@ -165,19 +165,6 @@ async function uploadGenericDataBySeed(
   );
   console.log("Metadata PDA address", metadataAccount.toBase58());
 
-  // Initialize metadata account and wait for confirmation
-  await initializeMetaDataBySeed(
-    metadataAccount,
-    programId,
-    keypair,
-    rpcUrl,
-    priorityFeesPerCU,
-    seed,
-    addSignerSeed,
-    dataType
-  );
-  console.log("Initialized metadata account");
-
   // Create buffer and wait for confirmation
   const bufferAddress = await createBuffer(
     buffer,
@@ -201,7 +188,7 @@ async function uploadGenericDataBySeed(
   );
   console.log("Buffer written");
 
-  // Set buffer and wait for confirmation
+  // Set buffer (which will also initialize if needed) and wait for confirmation
   await setBuffer(
     bufferAddress.publicKey,
     programId,
@@ -209,7 +196,8 @@ async function uploadGenericDataBySeed(
     rpcUrl,
     priorityFeesPerCU,
     seed,
-    addSignerSeed
+    addSignerSeed,
+    dataType
   );
   console.log("Buffer set and buffer closed");
 }
@@ -423,33 +411,22 @@ async function setBuffer(
   rpcUrl: string,
   priorityFeesPerCU: number,
   seed: string,
-  addSignerSeed: boolean = false
+  addSignerSeed: boolean = false,
+  dataType: string
 ) {
-  const { connection, provider, program } = setupConnection(rpcUrl, keypair);
+  const connection = new anchor.web3.Connection(rpcUrl, "confirmed");
+  const provider = new anchor.AnchorProvider(
+    connection,
+    new anchor.Wallet(keypair),
+    {}
+  );
+  anchor.setProvider(provider);
+  const program = new anchor.Program(IDL as MetadataProgram, provider);
+
   const metadataAccount = getMetadataAddressBySeed(
     programId,
     seed,
     addSignerSeed ? keypair.publicKey : undefined
-  );
-
-  const metadataAccountAccountInfo = await connection.getAccountInfo(
-    metadataAccount
-  );
-  if (!metadataAccountAccountInfo) {
-    throw new IDLError("Metadata account not found");
-  }
-  const bufferAccountAccountInfo = await connection.getAccountInfo(
-    bufferAddress
-  );
-
-  if (!bufferAccountAccountInfo) {
-    throw new IDLError("Buffer account not found");
-  }
-
-  let metadataAccountSize = metadataAccountAccountInfo.data.length;
-  const bufferAccountSize = bufferAccountAccountInfo.data.length;
-  console.log(
-    `Metadata account size ${metadataAccountSize} Buffer account size ${bufferAccountSize}`
   );
 
   const tx = await createTransaction(
@@ -458,26 +435,32 @@ async function setBuffer(
     priorityFeesPerCU
   );
 
-  // Add resize instructions
-  if (bufferAccountSize < metadataAccountSize) {
-    const resizeInstruction = await program.methods
-      .resize(bufferAccountSize)
-      .accountsPartial({
-        pda: metadataAccount,
-        programId: programId,
-      })
-      .instruction();
-    tx.add(resizeInstruction);
-    console.log("Resizing Metadata account to: ", bufferAccountSize);
-  } else {
-    let leftOverToResize = Math.max(0, bufferAccountSize - metadataAccountSize);
+  // Get buffer size first
+  const bufferAccountInfo = await connection.getAccountInfo(bufferAddress);
+  if (!bufferAccountInfo) {
+    throw new IDLError("Buffer account not found");
+  }
+  const bufferAccountSize = bufferAccountInfo.data.length;
 
+  // Check if we need to initialize
+  const initInstruction = await getInitializeInstruction(
+    metadataAccount,
+    programId,
+    seed,
+    addSignerSeed,
+    dataType,
+    provider
+  );
+
+  if (initInstruction) {
+    tx.add(initInstruction);
+    
+    // If we're initializing, we need to resize to match buffer size
+    let leftOverToResize = bufferAccountSize;
     while (leftOverToResize > 0) {
-      // Determine the chunk size for this resize step (max 10KB per step)
       const chunkSize = Math.min(MAX_RESIZE_STEP, leftOverToResize);
-      metadataAccountSize += chunkSize;
       const resizeInstruction = await program.methods
-        .resize(metadataAccountSize)
+        .resize(chunkSize)
         .accountsPartial({
           pda: metadataAccount,
           programId: programId,
@@ -485,10 +468,40 @@ async function setBuffer(
         .instruction();
 
       tx.add(resizeInstruction);
-      console.log(`Resize to ${chunkSize} left over ${leftOverToResize}`);
-
-      // Subtract the chunk size from the remaining size to resize
       leftOverToResize -= chunkSize;
+    }
+  } else {
+    // For existing accounts, handle resize as before
+    const metadataAccountInfo = await connection.getAccountInfo(metadataAccount);
+    if (metadataAccountInfo) {
+      let metadataAccountSize = metadataAccountInfo.data.length;
+      
+      if (bufferAccountSize < metadataAccountSize) {
+        const resizeInstruction = await program.methods
+          .resize(bufferAccountSize)
+          .accountsPartial({
+            pda: metadataAccount,
+            programId: programId,
+          })
+          .instruction();
+        tx.add(resizeInstruction);
+      } else if (bufferAccountSize > metadataAccountSize) {
+        let leftOverToResize = bufferAccountSize - metadataAccountSize;
+        while (leftOverToResize > 0) {
+          const chunkSize = Math.min(MAX_RESIZE_STEP, leftOverToResize);
+          metadataAccountSize += chunkSize;
+          const resizeInstruction = await program.methods
+            .resize(metadataAccountSize)
+            .accountsPartial({
+              pda: metadataAccount,
+              programId: programId,
+            })
+            .instruction();
+
+          tx.add(resizeInstruction);
+          leftOverToResize -= chunkSize;
+        }
+      }
     }
   }
 
@@ -513,12 +526,16 @@ async function setBuffer(
 
   tx.add(closeBufferInstruction);
 
+  console.log(
+    "Serialised transaction",
+    bs58.encode(tx.compileMessage().serialize())
+  );
   provider.wallet.signTransaction(tx);
 
   await withRetry(async () => {
     const signature = await connection.sendRawTransaction(tx.serialize());
     await connection.confirmTransaction(signature, "confirmed");
-    console.log("Signature set buffer", signature);
+    console.log("Set buffer signature", signature);
   });
 }
 
