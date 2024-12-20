@@ -14,6 +14,7 @@ import {
   closeBuffer,
   listBuffers,
   listPDAs,
+  closeProgramMetadataByPdaAddress,
 } from "./ProgramMetaData";
 import fs from "fs";
 import os from "os";
@@ -722,6 +723,44 @@ metadataCommand
         console.log(`Data Length: ${dataLength} bytes`);
         console.log(`Data Type: ${dataType}`);
       });
+    } catch (error) {
+      console.error(
+        "Error:",
+        error instanceof Error ? error.message : "Unknown error occurred"
+      );
+      process.exit(1);
+    }
+  });
+
+metadataCommand
+  .command("close-pda <pda-address>")
+  .description("Close a metadata PDA account and recover rent")
+  .option("-k, --keypair <path>", "Path to keypair file")
+  .option(
+    "-p, --priority-fees <number>",
+    "Priority fees per compute unit",
+    "100000"
+  )
+  .option("-u, --url <string>", "Custom RPC URL")
+  .option("-ul, --url-local", "Use localhost RPC (default)")
+  .option("-ud, --url-devnet", "Use Devnet RPC")
+  .option("-um, --url-mainnet", "Use Mainnet RPC")
+  .action(async (pdaAddress, options) => {
+    try {
+      const rpcUrl = getRpcUrl(options);
+      const keypair = options.keypair
+        ? Keypair.fromSecretKey(
+            new Uint8Array(JSON.parse(fs.readFileSync(options.keypair, "utf-8")))
+          )
+        : loadDefaultKeypair();
+
+      await closeProgramMetadataByPdaAddress(
+        new PublicKey(pdaAddress),
+        keypair,
+        rpcUrl,
+        parseInt(options.priorityFees)
+      );
+      console.log("Metadata PDA closed successfully!");
     } catch (error) {
       console.error(
         "Error:",

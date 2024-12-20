@@ -1253,6 +1253,38 @@ async function listPDAs(
   return listAccountsByType(authority, rpcUrl, "MetadataAccount2");
 }
 
+async function closeProgramMetadataByPdaAddress(
+  pdaAddress: PublicKey,
+  keypair: Keypair,
+  rpcUrl: string,
+  priorityFees: number = 100000
+): Promise<void> {
+  const { connection, provider, program } = setupConnection(rpcUrl, keypair);
+
+  const closeInstruction = await program.methods
+    .closeMetadataAccount2()
+    .accountsPartial({
+      metadataAccount: pdaAddress,
+      authority: keypair.publicKey,
+    })
+    .instruction();
+
+  const tx = await createTransaction(
+    connection,
+    keypair.publicKey,
+    priorityFees
+  );
+
+  tx.add(closeInstruction);
+  provider.wallet.signTransaction(tx);
+
+  await withRetry(async () => {
+    const signature = await connection.sendRawTransaction(tx.serialize());
+    await connection.confirmTransaction(signature, "confirmed");
+    console.log("Close metadata signature", signature);
+  });
+}
+
 export {
   uploadIdlByJsonPath,
   uploadIdlUrl,
@@ -1273,4 +1305,5 @@ export {
   listBuffers,
   listPDAs,
   listAccountsByType,
+  closeProgramMetadataByPdaAddress,
 };

@@ -1,4 +1,4 @@
-# IDL Registry Program
+# Solana Program Metadata CLI 
 
 ## Table of Contents
 
@@ -217,6 +217,37 @@ When using the `-a, --add-signer-seed` option, the program will add the signer's
 This can be useful though if there is some entity that wants to upload metadata for a program but does not have the authority to do so.
 
 ## Changelog
+
+### 1.1.0 (2024-12-20)
+
+#### Added
+
+- New CLI Commands
+  - `list-pdas`: View all metadata PDAs controlled by your authority
+  - `list-buffers`: View all buffer accounts controlled by your authority
+  - `close-buffer`: Recover rent from buffer accounts
+  - `close-pda`: Close metadata PDA accounts and recover rent
+- Multisig Support
+  - Added `--export-only` flag for Squads integration
+  - Returns base58 and base64 encoded transactions for multisig execution
+
+#### Improved
+
+- Account Structure
+  - Separated `MetadataBuffer` from `MetadataAccount2` for better type safety
+  - Added program ID to buffer accounts for better tracking
+- CLI Output
+  - Enhanced listing displays with program ID, data length, and data type
+  - Better formatted console output
+- Error Handling
+  - More descriptive error messages
+  - Better validation of inputs
+
+#### Technical
+
+- Refactored account listing logic into reusable functions
+- Improved TypeScript type definitions
+- Better code organization and maintainability
 
 ### 1.0.0
 

@@ -1,20 +1,8 @@
-# IDL Registry Program
+# Program Metadata
 
-## Description
+A program to store metadata and IDL for Solana programs.
 
-A program that can save any metadata linked to your program.
-The main usecase being IDL and a metadata json with name, logo and contact infos similar to security.txt.
-The trick is that only the program upgrade authority can create the canonical PDA. This makes the metadata very easy to find by just using the seeds "idl", "metadata" or anything else you want.
-
-Also instead of the whole IDL or metadata json people can choose to just upload a URL to the IDL instead to save on chain space and make updates easy.
-
-The the moment the IDL and Metadata are not yet merged into Solana explorer but here is a preview build that can show you how it looks like:
-https://explorer-dun.vercel.app/address/6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A/program-metadata?cluster=devnet
-https://explorer-dun.vercel.app/address/6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A/idl?cluster=devnet
-
-## CLI Usage
-
-### Installation
+## Installation & Usage
 
 There is no need to install the CLI you can just run it with npx:
 
@@ -238,3 +226,46 @@ anchor test --detach
 ```
 
 Like this you will be able to work locally without deploying the program to the network.
+
+
+## Changelog
+
+### 1.1.0 (2024-12-20)
+
+#### Added
+- New CLI Commands
+  - `list-pdas`: View all metadata PDAs controlled by your authority
+  - `list-buffers`: View all buffer accounts controlled by your authority
+  - `close-buffer`: Recover rent from buffer accounts
+  - `close-pda`: Close metadata PDA accounts and recover rent
+- Multisig Support
+  - Added `--export-only` flag for Squads integration
+  - Returns base58 and base64 encoded transactions for multisig execution
+
+#### Improved
+- Account Structure
+  - Separated `MetadataBuffer` from `MetadataAccount2` for better type safety
+  - Added program ID to buffer accounts for better tracking
+- CLI Output
+  - Enhanced listing displays with program ID, data length, and data type
+  - Better formatted console output
+- Error Handling
+  - More descriptive error messages
+  - Better validation of inputs
+
+#### Technical
+- Refactored account listing logic into reusable functions
+- Improved TypeScript type definitions
+- Better code organization and maintainability
+
+### 1.0.0
+Initial release
+- Basic metadata and IDL storage functionality
+- CLI interface for managing program metadata
+- Support for JSON and URL-based uploads
+
+- **Breaking**: Changed metadata account structure. Users must:
+  1. Close existing metadata accounts using `close1` instruction
+  2. Create new metadata accounts with updated structure
+  3. Seed derivation changed to have the dynamic seed at the end for security reasons
+
