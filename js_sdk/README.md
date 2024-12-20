@@ -228,7 +228,7 @@ This can be useful though if there is some entity that wants to upload metadata 
   - `close-buffer`: Recover rent from buffer accounts
   - `close-pda`: Close metadata PDA accounts and recover rent
 - Multisig Support
-  - Added `--export-only` flag for Squads integration
+  - Added `--export-transaction` flag for Squads integration
   - Returns base58 and base64 encoded transactions for multisig execution
 
 #### Improved

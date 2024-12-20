@@ -138,6 +138,11 @@ npx solana-program-metadata metadata upload tests/metadata.json 6XzaKuAwqP7Nn37v
 npx solana-program-metadata metadata upload-url https://raw.githubusercontent.com/solana-developers/idl-program/refs/heads/main/tests/metadata.json 6XzaKuAwqP7Nn37vwRdUqpuzNX6K8s1ADE6tHXSZG17A \
   -k tests/wallet2.json -ud
 
+# Export transaction for multisig
+npx solana-program-metadata metadata upload metadata.json <PROGRAM_ID> \
+  -k <KEYPAIR> \
+  --export-transaction
+
 ```
 
 ## JavaScript Usage
@@ -239,7 +244,7 @@ Like this you will be able to work locally without deploying the program to the 
   - `close-buffer`: Recover rent from buffer accounts
   - `close-pda`: Close metadata PDA accounts and recover rent
 - Multisig Support
-  - Added `--export-only` flag for Squads integration
+  - Added `--export-transaction` flag for Squads integration
   - Returns base58 and base64 encoded transactions for multisig execution
 
 #### Improved

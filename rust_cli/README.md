@@ -1,5 +1,8 @@
 # Metadata Rust CLI
 
+WARNING: The rust CLI is currently out of sync with the program and JS CLI.
+If you want to use the rust CLI please open a PR. Im happy t review it.
+
 This CLI is used to interact with the metadata program. You can upload IDLs and metadata to Solana programs so that everyone can access them by just knowing the program id. It supports uploading from local files or URLs. You can also download the IDL and metadata from a program to a file on your system. The data is stored on-chain in a compressed format to minimize storage costs while maintaining accessibility.
 
 The CLI provides a simple interface to manage both IDL (Interface Description Language) files, which describe a program's interface, and additional metadata that can provide more context about the program.
@@ -103,7 +106,7 @@ Airdrop SOL to your keypair - make sure to point your solana cli to localnet:
 
 ```bash
 solana config set --url localhost
-solana airdrop 20 -k tests/wallet.json  
+solana airdrop 20 -k tests/wallet.json
 ```
 
 Deploy any program using the keypair in `tests/wallet.json`:
@@ -117,4 +120,3 @@ Run the CLI upload for the program you just deployed:
 ```bash
 cargo run -- idl upload tests/testidl.json <program-id> -k tests/wallet.json -p 0
 ```
-

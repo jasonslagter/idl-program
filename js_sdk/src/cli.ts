@@ -137,7 +137,7 @@ idlCommand
     "Add signer's public key as additional seed. This will create a non associated metadata account. ",
     false
   )
-  .option("--export-only", "Only create buffer and export setBuffer transaction")
+  .option("--export-transaction", "Only create buffer and export setBuffer transaction")
   .action(async (file, programId, options) => {
     try {
       const rpcUrl = getRpcUrl(options);
@@ -167,10 +167,10 @@ idlCommand
         rpcUrl,
         parseInt(options.priorityFees),
         options.addSignerSeed,
-        options.exportOnly
+        options.exportTransaction
       );
 
-      if (options.exportOnly && result) {
+      if (options.exportTransaction && result) {
         console.log("Exported setBuffer transaction with programAuthority as signer:");
         console.log("Base58:", result.base58);
         console.log("Base64:", result.base64);
@@ -204,7 +204,7 @@ idlCommand
     "Add signer's public key as additional seed. This will create a non associated metadata account. ",
     false
   )
-  .option("--export-only", "Only create buffer and export setBuffer transaction")
+  .option("--export-transaction", "Only create buffer and export setBuffer transaction")
   .action(async (url, programId, options) => {
     try {
       const rpcUrl = getRpcUrl(options);
@@ -234,10 +234,10 @@ idlCommand
         rpcUrl,
         parseInt(options.priorityFees),
         options.addSignerSeed,
-        options.exportOnly
+        options.exportTransaction
       );
 
-      if (options.exportOnly && result) {
+      if (options.exportTransaction && result) {
         console.log("Exported setBuffer transaction with programAuthority as signer:");
         console.log("Base58:", result.base58);
         console.log("Base64:", result.base64);
@@ -312,7 +312,7 @@ metadataCommand
     "Add signer's public key as additional seed. This will create a non associated metadata account. ",
     false
   )
-  .option("--export-only", "Only create buffer and export setBuffer transaction")
+  .option("--export-transaction", "Only create buffer and export setBuffer transaction")
   .action(async (file, programId, options) => {
     try {
       const rpcUrl = getRpcUrl(options);
@@ -342,10 +342,10 @@ metadataCommand
         rpcUrl,
         parseInt(options.priorityFees),
         options.addSignerSeed,
-        options.exportOnly
+        options.exportTransaction
       );
 
-      if (options.exportOnly && result) {
+      if (options.exportTransaction && result) {
         console.log("Exported setBuffer transaction with programAuthority as signer:");
         console.log("Base58:", result.base58);
         console.log("Base64:", result.base64);
@@ -379,7 +379,7 @@ metadataCommand
     "Add signer's public key as additional seed. This will create a non associated metadata account. ",
     false
   )
-  .option("--export-only", "Only create buffer and export setBuffer transaction")
+  .option("--export-transaction", "Only create buffer and export setBuffer transaction")
   .action(async (url, programId, options) => {
     try {
       const rpcUrl = getRpcUrl(options);
@@ -409,10 +409,10 @@ metadataCommand
         rpcUrl,
         parseInt(options.priorityFees),
         options.addSignerSeed,
-        options.exportOnly
+        options.exportTransaction
       );
 
-      if (options.exportOnly && result) {
+      if (options.exportTransaction && result) {
         console.log("Exported setBuffer transaction with programAuthority as signer:");
         console.log("Base58:", result.base58);
         console.log("Base64:", result.base64);

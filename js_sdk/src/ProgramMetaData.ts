@@ -157,7 +157,7 @@ async function uploadGenericDataBySeed(
   seed: string,
   addSignerSeed: boolean = false,
   dataType: string,
-  exportOnly: boolean
+  exportTransaction: boolean
 ): Promise<void | ExportedTransaction> {
   if (dataType.length > DATA_TYPE_LENGTH) {
     throw new IDLError(
@@ -204,9 +204,9 @@ async function uploadGenericDataBySeed(
     seed,
     addSignerSeed,
     dataType,
-    exportOnly
+    exportTransaction
   );
-  if (!exportOnly) {
+  if (!exportTransaction) {
     console.log("Buffer set and buffer closed");
   }
   return result;
