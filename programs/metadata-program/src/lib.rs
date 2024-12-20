@@ -26,10 +26,19 @@ pub mod metadata_program {
         #[msg("Invalid authority")]
         InvalidAuthority,
         #[msg("Wrong program ID")]
-        WrongProgramId
+        WrongProgramId,
+        #[msg("Data type and seed must match")]
+        DataTypeMismatch
     }
 
-    pub fn initialize(ctx: Context<Initialize>, data_type: String, _seed: String) -> Result<()> {      
+    pub fn initialize(
+        ctx: Context<Initialize>, 
+        _seed: String,
+        encoding: Encoding,
+        compression: Compression,
+        format: Format,
+        data_source: DataSource,
+    ) -> Result<()> {
         msg!("Signer {:?}!", ctx.accounts.signer.key);              
         msg!("Authority {:?}!", ctx.accounts.program_data.upgrade_authority_address);              
 
@@ -75,15 +84,27 @@ pub mod metadata_program {
         }
 
         // When all is good create PDA and save authority for later upgrades.
-        let account = &mut ctx.accounts.pda;
-        account.authority = *ctx.accounts.signer.key;
-        account.program_id = *ctx.accounts.program_id.key;
-        account.set_data_type(&data_type)?;
+        let metadata = &mut ctx.accounts.pda;
+        metadata.authority = *ctx.accounts.signer.key;
+        metadata.program_id = *ctx.accounts.program_id.key;
+        metadata.set_data_type(&_seed)?;
+        metadata.encoding = encoding;
+        metadata.compression = compression;
+        metadata.format = format;
+        metadata.data_source = data_source;
+        metadata.data_len = 0;
         
         Ok(())
     }
 
-    pub fn initialize_with_signer_seed(ctx: Context<InitializeWithSignerSeed>, data_type: String, _seed: String) -> Result<()> {      
+    pub fn initialize_with_signer_seed(
+        ctx: Context<InitializeWithSignerSeed>, 
+        _seed: String,
+        encoding: Encoding,
+        compression: Compression,
+        format: Format,
+        data_source: DataSource,
+    ) -> Result<()> {
         msg!("Signer {:?}!", ctx.accounts.signer.key);              
         msg!("Authority {:?}!", ctx.accounts.program_data.upgrade_authority_address);              
 
@@ -129,10 +150,16 @@ pub mod metadata_program {
         }
 
         // When all is good create PDA and save authority for later upgrades.
-        let account = &mut ctx.accounts.pda;
-        account.authority = *ctx.accounts.signer.key;
-        account.program_id = *ctx.accounts.program_id.key;
-        account.set_data_type(&data_type)?;
+        let metadata = &mut ctx.accounts.pda;
+        metadata.authority = *ctx.accounts.signer.key;
+        metadata.program_id = *ctx.accounts.program_id.key;
+        metadata.set_data_type(&_seed)?;
+        metadata.encoding = encoding;
+        metadata.compression = compression;
+        metadata.format = format;
+        metadata.data_source = data_source;
+        metadata.data_len = 0;
+        
         Ok(())
     }
 
@@ -156,10 +183,22 @@ pub mod metadata_program {
         Ok(())
     }
 
-    pub fn create_buffer(ctx: Context<CreateBuffer>, data_type: String) -> Result<()> {
+    pub fn create_buffer(
+        ctx: Context<CreateBuffer>, 
+        _seed: String,
+        encoding: Encoding,
+        compression: Compression,
+        format: Format,
+        data_source: DataSource,
+    ) -> Result<()> {
         let buffer = &mut ctx.accounts.buffer;
         buffer.authority = *ctx.accounts.authority.key;
-        buffer.set_data_type(&data_type)?;
+        buffer.set_data_type(&_seed)?;
+        buffer.encoding = encoding;
+        buffer.compression = compression;
+        buffer.format = format;
+        buffer.data_source = data_source;
+        buffer.data_len = 0;
         Ok(())
     }
 
@@ -228,9 +267,19 @@ pub mod metadata_program {
             ctx.accounts.pda.authority = ctx.accounts.authority.key();
         }
 
+        // Copy metadata from buffer to PDA
+        let buffer = &ctx.accounts.buffer;
+        let metadata = &mut ctx.accounts.pda;
+        
+        metadata.encoding = buffer.encoding.clone();
+        metadata.compression = buffer.compression.clone();
+        metadata.format = buffer.format.clone();
+        metadata.data_source = buffer.data_source.clone();
+        metadata.data_len = buffer.data_len;
+
         // Perform the buffer set operation
-        ctx.accounts.pda.data_len = ctx.accounts.buffer.data_len;
-        ctx.accounts.pda.set_data_type(&ctx.accounts.buffer.get_data_type())?;
+        // Here we on purpose do not allow changing the data type.
+        // ctx.accounts.pda.set_data_type(&ctx.accounts.buffer.get_data_type())?;
 
         use MetadataUploadTrailingData;
         let buffer_len = ::std::convert::TryInto::<usize>::try_into(ctx.accounts.buffer.data_len).unwrap();
@@ -277,7 +326,13 @@ pub mod metadata_program {
 }
 
 #[derive(Accounts)]
-#[instruction(data_type: String, seed: String)]
+#[instruction(
+    seed: String,  // Remove data_type, only keep seed
+    encoding: Encoding,
+    compression: Compression,
+    format: Format,
+    data_source: DataSource
+)]
 pub struct Initialize<'info> {
     #[account(
         init,
@@ -290,7 +345,7 @@ pub struct Initialize<'info> {
     #[account(mut)]
     pub signer: Signer<'info>,
     pub system_program: Program<'info, System>,
-    /// CHECK: This is the program id of the program you want to upload the metadata for. Checks are done in code.
+    /// CHECK: This is the program id of the program you want to upload the metadata for.
     pub program_id: AccountInfo<'info>,
     // Make sure that the signer is actually the upgrade authority of the program.
     #[account(constraint = program_data.upgrade_authority_address == Some(signer.key()))]
@@ -298,7 +353,13 @@ pub struct Initialize<'info> {
 }
 
 #[derive(Accounts)]
-#[instruction(data_type: String, seed: String)]
+#[instruction(
+    seed: String,  // Remove data_type, only keep seed
+    encoding: Encoding,
+    compression: Compression,
+    format: Format,
+    data_source: DataSource
+)]
 pub struct InitializeWithSignerSeed<'info> {
     #[account(
         init,
@@ -346,7 +407,7 @@ pub struct Resize<'info> {
 
 // Accounts for creating an metadata buffer.
 #[derive(Accounts)]
-#[instruction(data_type: String)]
+#[instruction(seed: String)]
 pub struct CreateBuffer<'info> {
     #[account(zero)]
     pub buffer: Account<'info, MetadataBuffer>,
@@ -412,11 +473,45 @@ pub struct SetBuffer<'info> {
     pub program_data: Account<'info, ProgramData>,
 }
 
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Debug)]
+pub enum Encoding {
+    Utf8,
+    Base58,
+    Base64,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Debug)]
+pub enum Compression {
+    None,
+    Gzip,
+    Zstd,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Debug)]
+pub enum Format {
+    Text,
+    Json,
+    Yaml,
+    Toml,
+    Binary,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Debug)]
+pub enum DataSource {
+    Url,
+    Account,
+    Direct,  // Data stored directly in trailing bytes
+}
+
 #[account]
 pub struct MetadataAccount2 {
     pub authority: Pubkey,
-    pub data_type: [u8; 16], // 16 bytes to be flexible to what people want to use it for. 
+    pub data_type: [u8; 16],
     pub program_id: Pubkey,
+    pub encoding: Encoding,
+    pub compression: Compression,
+    pub format: Format,
+    pub data_source: DataSource,
     pub data_len: u32,
     // trailing data...
 }
@@ -426,6 +521,10 @@ pub struct MetadataBuffer {
     pub authority: Pubkey,
     pub data_type: [u8; 16], // 16 bytes to be flexible to what people want to use it for. 
     pub program_id: Pubkey,
+    pub encoding: Encoding,
+    pub compression: Compression,
+    pub format: Format,
+    pub data_source: DataSource,
     pub data_len: u32,
     // trailing data...
 }
@@ -440,13 +539,9 @@ pub struct MetadataAccount {
 
 // Common data type constants
 #[constant]
-pub const DATA_TYPE_IDL_JSON: &str = "idl.json";
+pub const DATA_TYPE_IDL: &str = "idl";
 #[constant]
-pub const DATA_TYPE_IDL_URL: &str = "idl.url";
-#[constant]
-pub const DATA_TYPE_META_JSON: &str = "meta.json";
-#[constant]
-pub const DATA_TYPE_META_URL: &str = "meta.url";
+pub const DATA_TYPE_METADATA: &str = "metadata";
 // But users can also use their own types:
 // "game.stats"
 // "dao.config.v1"
@@ -466,8 +561,13 @@ pub const DATA_TYPE_LENGTH: u64 = 16;
 pub const METADATA_ACCOUNT_SIZE: u64 = 
     PUBKEY_LENGTH +                 // authority
     PROGRAM_ID_LENGTH +             // program_id
-    U32_LENGTH +                    // data_len
-    DATA_TYPE_LENGTH + 8;           // data_type + discriminator
+    DATA_TYPE_LENGTH +              // data_type
+    1 +                            // encoding enum
+    1 +                            // compression enum
+    1 +                            // format enum
+    1 +                            // data_source enum (1 byte discriminator)
+    U32_LENGTH +                   // data_len
+    8;                             // discriminator
 
 impl MetadataAccount2 {
     pub fn set_data_type(&mut self, data_type: &str) -> Result<()> {

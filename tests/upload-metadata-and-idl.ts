@@ -77,11 +77,11 @@ describe("Test metadata program with idl and program metadata", () => {
       "utf8"
     );
     console.log("Data type hex:", Buffer.from(dataType).toString("hex"));
-    console.log("Expected hex:", Buffer.from("meta.url").toString("hex"));
+    console.log("Expected hex:", Buffer.from("idl").toString("hex"));
     assert.equal(
       dataType.split("\0")[0], // Split on null byte and take first part
-      "idl.url",
-      "idl data type should be idl.url"
+      "idl",
+      "idl data type should be idl"
     );
 
     assert.equal(
@@ -123,7 +123,7 @@ describe("Test metadata program with idl and program metadata", () => {
     console.log("Expected hex:", Buffer.from("idl.json").toString("hex"));
     assert.equal(
       dataType.split("\0")[0], // Split on null byte and take first part
-      "idl.json",
+      "idl",
       "idl data type should be idl.json"
     );
 
@@ -237,7 +237,7 @@ describe("Test metadata program with idl and program metadata", () => {
     );
   });
 
-  it("Test export-only buffer creation and transaction execution", async () => {
+  it("Test export-transaction buffer creation and transaction execution", async () => {
     const LogoUrl =
       "https://upload.wikimedia.org/wikipedia/en/b/b9/Solana_logo.png";
 
@@ -287,4 +287,66 @@ describe("Test metadata program with idl and program metadata", () => {
       "The saved metadata should match the input"
     );
   });
+
+  it("Should handle export-transaction with different account states", async () => {
+    const LogoUrl = "https://upload.wikimedia.org/wikipedia/en/b/b9/Solana_logo.png";
+
+    // First test: Export transaction for non-existent PDA (should include init)
+    const result1 = await uploadProgramMetadataByJsonPath(
+      META_DATA_JSON,
+      TEST_IDL_PROGRAM,
+      keypair,
+      rpcUrl,
+      0,
+      false,
+      true // exportTransaction = true
+    );
+
+    assert.ok(result1, "Should return serialized transaction");
+    const tx1 = decodeAndVerifyTransaction(result1.base58);
+    assert.equal(tx1.instructions.length, 2, "Should have 3 instructions (priority fee, setBuffer) because init was already done in another test");
+
+    // Execute the transaction to set up for next test
+    await executeTransaction(tx1);
+
+    // Second test: Export transaction for existing PDA (should not include init)
+    const result2 = await uploadProgramMetadataByJsonPath(
+      META_DATA_JSON,
+      TEST_IDL_PROGRAM,
+      keypair,
+      rpcUrl,
+      0,
+      false,
+      true
+    );
+
+    assert.ok(result2, "Should return serialized transaction");
+    const tx2 = decodeAndVerifyTransaction(result2.base58);
+    assert.equal(tx2.instructions.length, 2, "Should have 2 instructions (priority fee, setBuffer)");
+
+    // Verify metadata was written correctly
+    const metadata = await fetchProgramMetadata(TEST_IDL_PROGRAM, rpcUrl);
+    assert.equal(metadata.logo, LogoUrl, "The saved metadata should match the input");
+  });
+
+  // Helper functions for the test
+  function decodeAndVerifyTransaction(base58Tx: string): Transaction {
+    const messageBytes = bs58.decode(base58Tx);
+    const message = anchor.web3.Message.from(Buffer.from(messageBytes));
+    return Transaction.populate(message);
+  }
+
+  async function executeTransaction(transaction: Transaction): Promise<void> {
+    const { blockhash } = await connection.getLatestBlockhash();
+    transaction.recentBlockhash = blockhash;
+    transaction.feePayer = keypair.publicKey;
+    transaction.signatures = [];
+    transaction.sign(keypair);
+
+    const signature = await connection.sendRawTransaction(transaction.serialize(), {
+      skipPreflight: false,
+      preflightCommitment: "confirmed",
+    });
+    await connection.confirmTransaction(signature, "confirmed");
+  }
 });

@@ -14,23 +14,57 @@ const CONFIRMATION_COMMITMENT: anchor.web3.Commitment = "confirmed";
 const METADATA_PROGRAM_ID = new PublicKey(
   "pmetaypqG6SiB47xMigYVMAkuHDWeSDXcv3zzDrJJvA"
 );
-const IDL_SEED = "idl";
-const PROGRAM_METADATA_SEED = "metadata";
+
+// Add at the top with other constants/types
+export enum Encoding {
+  Utf8 = 0,
+  Base58 = 1,
+  Base64 = 2,
+  Binary = 4,
+}
+
+export enum Compression {
+  None = 0,
+  Gzip = 1,
+  Zstd = 2,
+}
+
+export enum Format {
+  Text = 0,
+  Json = 1,
+  Yaml = 2,
+  Toml = 3,
+}
+
+export enum DataSource {
+  Url = 0,
+  Account = 1,
+  Direct = 2,
+}
+
+// At the top with other types
+type EncodingType = { utf8: {} } | { base58: {} } | { base64: {} };
+type CompressionType = { none: {} } | { gzip: {} } | { zstd: {} };
+type FormatType =
+  | { text: {} }
+  | { json: {} }
+  | { yaml: {} }
+  | { toml: {} }
+  | { binary: {} };
+type DataSourceType = { url: {} } | { account: {} } | { direct: {} };
 
 // Helper to get constant value from IDL
 function getConstant(name: string): string {
   const constant = IDL.constants.find((c) => c.name === name);
   if (!constant) {
-    throw new IDLError(`Required constant ${name} not found in IDL`);
+    throw new Error(`Required constant ${name} not found in IDL`);
   }
   return constant.value.replace(/"/g, "");
 }
 
 // Get constants from IDL
-export const DATA_TYPE_IDL_JSON = getConstant("DATA_TYPE_IDL_JSON");
-export const DATA_TYPE_IDL_URL = getConstant("DATA_TYPE_IDL_URL");
-export const DATA_TYPE_META_JSON = getConstant("DATA_TYPE_META_JSON");
-export const DATA_TYPE_META_URL = getConstant("DATA_TYPE_META_URL");
+export const SEED_IDL = getConstant("DATA_TYPE_IDL");
+export const SEED_METADATA = getConstant("DATA_TYPE_METADATA");
 export const METADATA_OFFSET = Number(getConstant("METADATA_ACCOUNT_SIZE"));
 export const DATA_TYPE_LENGTH = Number(getConstant("DATA_TYPE_LENGTH"));
 
@@ -67,6 +101,26 @@ class IDLError extends Error {
   }
 }
 
+// At the top of the file, add these helper functions to get enum values
+function getEnumVariant(enumName: string, variantName: string): number {
+  const enumType = IDL.types.find((t) => t.name === enumName);
+  if (
+    !enumType ||
+    !("type" in enumType) ||
+    !("variants" in enumType.type) ||
+    !Array.isArray(enumType.type.variants)
+  ) {
+    throw new Error(`Invalid enum ${enumName} in IDL`);
+  }
+  const variantIndex = enumType.type.variants.findIndex(
+    (v) => v.name === variantName
+  );
+  if (variantIndex === -1) {
+    throw new Error(`Variant ${variantName} not found in enum ${enumName}`);
+  }
+  return variantIndex;
+}
+
 /**
  * Uploads an IDL from a JSON file path
  * @param {string} idlPath - Path to the IDL JSON file
@@ -84,7 +138,7 @@ async function uploadIdlByJsonPath(
   rpcUrl: string,
   priorityFeesPerCU: number,
   addSignerSeed: boolean = false,
-  exportOnly: boolean
+  exportOnly: boolean = false
 ): Promise<void | ExportedTransaction> {
   if (!fs.existsSync(idlPath)) {
     throw new IDLError(`File not found: ${idlPath}`);
@@ -99,10 +153,67 @@ async function uploadIdlByJsonPath(
     keypair,
     rpcUrl,
     priorityFeesPerCU,
-    IDL_SEED,
+    SEED_IDL,
     addSignerSeed,
-    DATA_TYPE_IDL_JSON,
-    exportOnly
+    exportOnly,
+    Encoding.Utf8,
+    Compression.Gzip,
+    Format.Json,
+    DataSource.Direct
+  );
+}
+
+/**
+ * Uploads an IDL from an account address
+ * @param {PublicKey} accountAddress - Account address containing the IDL data
+ * @param {number} accountDataOffset - Offset into the account data where IDL starts
+ * @param {number} accountDataLength - Length of IDL data in the account
+ * @param {PublicKey} programId - Program ID
+ * @param {Keypair} keypair - Keypair for transaction signing
+ * @param {string} rpcUrl - RPC URL for the connection
+ * @param {number} priorityFeesPerCU - Priority fees per compute unit
+ * @param {boolean} addSignerSeed - Whether to add signer's public key as additional seed (optional, defaults to false)
+ * @param {boolean} exportOnly - Whether to only export the transaction without sending it (optional, defaults to false)
+ * @returns {Promise<void | ExportedTransaction>} Returns void if sent, or ExportedTransaction if exportOnly is true
+ * @throws {IDLError} If account not found or upload fails
+ */
+async function uploadIdlByAccountAddress(
+  accountAddress: PublicKey,
+  accountDataOffset: number,
+  accountDataLength: number,
+  programId: PublicKey,
+  keypair: Keypair,
+  rpcUrl: string,
+  priorityFeesPerCU: number,
+  addSignerSeed: boolean = false,
+  exportOnly: boolean = false
+): Promise<void | ExportedTransaction> {
+ 
+  // Create a buffer to hold the account address (32 bytes) and two u32s (4 bytes each)
+  const buffer = Buffer.alloc(40); 
+
+  // Write the account address to the first 32 bytes
+  accountAddress.toBuffer().copy(buffer, 0);
+
+  // Write offset as u32 (4 bytes) at position 32
+  buffer.writeUInt32LE(accountDataOffset, 32);
+
+  // Write length as u32 (4 bytes) at position 36
+  buffer.writeUInt32LE(accountDataLength, 36);
+  
+  return await uploadGenericDataBySeed(
+    buffer,
+    programId,
+    keypair,
+    rpcUrl,
+    priorityFeesPerCU,
+    SEED_IDL,
+    addSignerSeed,
+    exportOnly,
+    Encoding.Binary,
+    Compression.None,
+    Format.Text,
+    DataSource.Direct
   );
 }
 
@@ -122,7 +233,7 @@ async function uploadIdlUrl(
   rpcUrl: string,
   priorityFeesPerCU: number,
   addSignerSeed: boolean = false,
-  exportOnly: boolean
+  exportOnly: boolean = false
 ): Promise<void | ExportedTransaction> {
   let buffer: Buffer = Buffer.from(url, "utf8");
   return await uploadGenericDataBySeed(
@@ -131,10 +242,13 @@ async function uploadIdlUrl(
     keypair,
     rpcUrl,
     priorityFeesPerCU,
-    IDL_SEED,
+    SEED_IDL,
     addSignerSeed,
-    DATA_TYPE_IDL_URL,
-    exportOnly
+    exportOnly,
+    Encoding.Utf8,
+    Compression.Gzip,
+    Format.Text,
+    DataSource.Url
   );
 }
 
@@ -156,10 +270,13 @@ async function uploadGenericDataBySeed(
   priorityFeesPerCU: number,
   seed: string,
   addSignerSeed: boolean = false,
-  dataType: string,
-  exportTransaction: boolean
+  exportTransaction: boolean,
+  encoding: number,
+  compression: number,
+  format: number,
+  dataSource: number
 ): Promise<void | ExportedTransaction> {
-  if (dataType.length > DATA_TYPE_LENGTH) {
+  if (seed.length > DATA_TYPE_LENGTH) {
     throw new IDLError(
       `Data type too long, max length is ${DATA_TYPE_LENGTH} bytes`
     );
@@ -177,7 +294,11 @@ async function uploadGenericDataBySeed(
     keypair,
     rpcUrl,
     priorityFeesPerCU,
-    dataType
+    seed,
+    toAnchorEnum("encoding", encoding),
+    toAnchorEnum("compression", compression),
+    toAnchorEnum("format", format),
+    toAnchorEnum("dataSource", dataSource)
   );
   if (!bufferAddress) {
     throw new IDLError("Was not able to create buffer");
@@ -203,8 +324,11 @@ async function uploadGenericDataBySeed(
     priorityFeesPerCU,
     seed,
     addSignerSeed,
-    dataType,
-    exportTransaction
+    exportTransaction,
+    encoding,
+    compression,
+    format,
+    dataSource
   );
   if (!exportTransaction) {
     console.log("Buffer set and buffer closed");
@@ -266,7 +390,11 @@ async function createBuffer(
   keypair: Keypair,
   rpcUrl: string,
   priorityFeesPerCU: number,
-  dataType: string
+  seed: string,
+  encoding: EncodingType,
+  compression: CompressionType,
+  format: FormatType,
+  dataSource: DataSourceType
 ): Promise<Keypair | null> {
   const connection = new anchor.web3.Connection(rpcUrl, "confirmed");
   const provider = new anchor.AnchorProvider(
@@ -277,7 +405,7 @@ async function createBuffer(
   anchor.setProvider(provider);
   const program = new anchor.Program(IDL as MetadataProgram, provider);
 
-  const idlBytes = deflate(new Uint8Array(buffer)); // Compress the IDL JSON
+  const idlBytes = deflate(new Uint8Array(buffer)); // Compress the data using gzip
   const bufferSize = idlBytes.length + METADATA_OFFSET;
   let bufferKeypair = new Keypair();
 
@@ -290,7 +418,7 @@ async function createBuffer(
   });
 
   const createBufferInstruction = await program.methods
-    .createBuffer(dataType)
+    .createBuffer(seed, encoding, compression, format, dataSource)
     .accountsPartial({
       buffer: bufferKeypair.publicKey,
     })
@@ -333,7 +461,7 @@ async function writeBuffer(
   const { connection, provider, program } = setupConnection(rpcUrl, keypair);
   const idlBytes = deflate(new Uint8Array(buffer));
   let offset = 0;
-
+  program.idl.types.find;
   while (offset < idlBytes.length) {
     const chunk = idlBytes.subarray(offset, offset + CHUNK_SIZE);
     const writeBufferInstruction = await program.methods
@@ -376,8 +504,11 @@ async function setBuffer(
   priorityFeesPerCU: number,
   seed: string,
   addSignerSeed: boolean = false,
-  dataType: string,
-  exportOnly: boolean
+  exportOnly: boolean,
+  encoding: number = getEnumVariant("encoding", "utf8"),
+  compression: number = getEnumVariant("compression", "none"),
+  format: number = getEnumVariant("format", "json"),
+  dataSource: number = getEnumVariant("dataSource", "direct")
 ): Promise<void | ExportedTransaction> {
   const connection = new anchor.web3.Connection(rpcUrl, "confirmed");
   const provider = new anchor.AnchorProvider(
@@ -434,8 +565,11 @@ async function setBuffer(
     programId,
     seed,
     addSignerSeed,
-    dataType,
-    provider
+    provider,
+    toAnchorEnum("encoding", encoding),
+    toAnchorEnum("compression", compression),
+    toAnchorEnum("format", format),
+    toAnchorEnum("dataSource", dataSource)
   );
 
   const metadataAccountInfo = await connection.getAccountInfo(metadataAccount);
@@ -445,10 +579,13 @@ async function setBuffer(
 
     // Always resize after initialization
     let leftOverToResize = bufferAccountSize;
+    console.log("leftOverToResize", leftOverToResize);
+    let metadataAccountSize = METADATA_OFFSET;
     while (leftOverToResize > 0) {
       const chunkSize = Math.min(MAX_RESIZE_STEP, leftOverToResize);
+      metadataAccountSize += chunkSize;
       const resizeInstruction = await program.methods
-        .resize(chunkSize)
+        .resize(metadataAccountSize)
         .accountsPartial({
           pda: metadataAccount,
           programId: programId,
@@ -457,6 +594,7 @@ async function setBuffer(
 
       tx.add(resizeInstruction);
       leftOverToResize -= chunkSize;
+      console.log("leftOverToResize", leftOverToResize);
     }
   } else if (metadataAccountInfo) {
     // Handle resize for existing accounts
@@ -473,6 +611,8 @@ async function setBuffer(
       tx.add(resizeInstruction);
     } else if (bufferAccountSize > metadataAccountSize) {
       let leftOverToResize = bufferAccountSize - metadataAccountSize;
+      console.log("leftOverToResize inner", leftOverToResize);
+
       while (leftOverToResize > 0) {
         const chunkSize = Math.min(MAX_RESIZE_STEP, leftOverToResize);
         metadataAccountSize += chunkSize;
@@ -487,6 +627,7 @@ async function setBuffer(
         tx.add(resizeInstruction);
         console.log(`Resize to ${chunkSize} left over ${leftOverToResize}`);
         leftOverToResize -= chunkSize;
+        console.log("leftOverToResize inner", leftOverToResize);
       }
     }
   }
@@ -530,11 +671,11 @@ async function setBuffer(
 }
 
 function getAssociatedIdlAddress(programId: PublicKey): PublicKey {
-  return getMetadataAddressBySeed(programId, IDL_SEED);
+  return getMetadataAddressBySeed(programId, SEED_IDL);
 }
 
 function getAssociatedMetadataAddress(programId: PublicKey): PublicKey {
-  return getMetadataAddressBySeed(programId, PROGRAM_METADATA_SEED);
+  return getMetadataAddressBySeed(programId, SEED_METADATA);
 }
 
 /**
@@ -569,37 +710,29 @@ async function fetchIDL(
 ): Promise<string | null> {
   const connection = new anchor.web3.Connection(rpcUrl, "confirmed");
 
-  const idlAccount = getMetadataAddressBySeed(programId, IDL_SEED, signerSeed);
+  const provider = new anchor.AnchorProvider(
+    connection,
+    new anchor.Wallet(new Keypair()),
+    {}
+  );
+  anchor.setProvider(provider);
+  const program = new anchor.Program(IDL as MetadataProgram, provider);
+  const idlAccount = getMetadataAddressBySeed(programId, SEED_IDL, signerSeed);
   const accountInfo = await connection.getAccountInfo(idlAccount);
-
-  // If we get the IDL account we can not access the additional data bytes at
-  // the end so we need to use getaccount info and manually cut of the front.
-  // const idl = await program.account.idlAccount.fetch(idlAccount);
-  // We could also use the idlAccount.fetch to get the IDL account but that would be two calls
 
   if (!accountInfo) {
     throw new Error(`IDL account not found at ${idlAccount.toBase58()}`);
   }
-
-  // Get the data type from the account (it's stored after the discriminator and authority)
-  const dataType = new TextDecoder().decode(
-    accountInfo.data.slice(40, 40 + DATA_TYPE_LENGTH).filter((x) => x !== 0)
+  const decoded = program.coder.accounts.decode(
+    "metadataAccount2",
+    accountInfo.data
   );
 
-  console.log("Data type", dataType);
-
-  const dataLenBytes = accountInfo.data.slice(
-    METADATA_OFFSET - 4,
-    METADATA_OFFSET
-  );
-  const dataLength = new DataView(
-    dataLenBytes.buffer,
-    dataLenBytes.byteOffset,
-    dataLenBytes.byteLength
-  ).getUint32(0, true); // true for little-endian
-
-  console.log("dataLength", dataLength);
-
+  // Get the data type from the account
+  const dataType = decoded.dataType;
+  const dataLength = decoded.dataLen;
+  const format = decoded.format;
+  console.log("decoded", decoded);
   const compressedData = accountInfo.data.slice(
     METADATA_OFFSET,
     METADATA_OFFSET + dataLength
@@ -607,7 +740,11 @@ async function fetchIDL(
   const decompressedData = inflate(compressedData);
   const content = new TextDecoder("utf-8").decode(decompressedData);
 
-  if (dataType === DATA_TYPE_IDL_URL) {
+  console.log("Data type", dataType);
+  console.log("dataLength", dataLength);
+  console.log("format", format);
+
+  if ("url" in format) {
     // Handle URL type
     try {
       const response = await fetch(content.trim());
@@ -621,16 +758,16 @@ async function fetchIDL(
     } catch (error) {
       throw new Error(`Failed to fetch or parse IDL from URL: `);
     }
-  } else if (dataType === DATA_TYPE_IDL_JSON) {
+  } else if ("json" in format) {
     // Handle JSON type
     try {
       JSON.parse(content); // Validate JSON format
       return content;
     } catch (error) {
-      throw new Error(`Invalid IDL JSON format: ${error}`);
+      throw new Error(`Failed to parse JSON: ${error}`);
     }
   } else {
-    throw new Error(`Unknown data type: ${dataType}`);
+    throw new Error(`Unknown format: ${JSON.stringify(format)}`);
   }
 }
 
@@ -722,10 +859,13 @@ async function uploadProgramMetadata(
     keypair,
     rpcUrl,
     priorityFeesPerCU,
-    PROGRAM_METADATA_SEED,
+    SEED_METADATA,
     addSignerSeed,
-    DATA_TYPE_META_JSON,
-    exportOnly
+    exportOnly,
+    Encoding.Utf8,
+    Compression.Gzip,
+    Format.Json,
+    DataSource.Direct
   );
 }
 
@@ -748,7 +888,7 @@ async function fetchProgramMetadata(
 
   const metadataAccount = getMetadataAddressBySeed(
     programId,
-    PROGRAM_METADATA_SEED,
+    SEED_METADATA,
     signerSeed
   );
   const accountInfo = await connection.getAccountInfo(metadataAccount);
@@ -759,21 +899,22 @@ async function fetchProgramMetadata(
     );
   }
 
-  // Get the data type from the account
-  const dataType = new TextDecoder().decode(
-    accountInfo.data.slice(40, 40 + DATA_TYPE_LENGTH).filter((x) => x !== 0)
+  const provider = new anchor.AnchorProvider(
+    connection,
+    new anchor.Wallet(new Keypair()),
+    {}
+  );
+  anchor.setProvider(provider);
+  const program = new anchor.Program(IDL as MetadataProgram, provider);
+  const decoded = program.coder.accounts.decode(
+    "metadataAccount2",
+    accountInfo.data
   );
 
-  // Get the data length and content
-  const dataLenBytes = accountInfo.data.slice(
-    METADATA_OFFSET - 4,
-    METADATA_OFFSET
-  );
-  const dataLength = new DataView(
-    dataLenBytes.buffer,
-    dataLenBytes.byteOffset,
-    dataLenBytes.byteLength
-  ).getUint32(0, true); // true for little-endian
+  // Get the data type from the account
+  const dataType = decoded.dataType;
+  const dataLength = decoded.dataLen;
+  const format = decoded.format;
 
   const compressedData = accountInfo.data.slice(
     METADATA_OFFSET,
@@ -782,7 +923,7 @@ async function fetchProgramMetadata(
   const decompressedData = inflate(compressedData);
   const content = new TextDecoder("utf-8").decode(decompressedData);
 
-  if (dataType === DATA_TYPE_META_URL) {
+  if ("url" in format) {
     // Handle URL type
     try {
       const response = await fetch(content.trim());
@@ -798,7 +939,7 @@ async function fetchProgramMetadata(
         `Failed to fetch or parse metadata from URL: ${error}`
       );
     }
-  } else if (dataType === DATA_TYPE_META_JSON) {
+  } else if ("json" in format) {
     // Handle JSON type
     try {
       return JSON.parse(content) as ProgramMetaData;
@@ -806,7 +947,7 @@ async function fetchProgramMetadata(
       throw new IDLError(`Invalid metadata JSON format: ${error}`);
     }
   } else {
-    throw new IDLError(`Unknown data type: ${dataType}`);
+    throw new IDLError(`Unknown format: ${JSON.stringify(format)}`);
   }
 }
 
@@ -822,7 +963,7 @@ async function uploadProgramMetadataByJsonPath(
   rpcUrl: string,
   priorityFeesPerCU: number,
   addSignerSeed: boolean = false,
-  exportOnly: boolean = false
+  exportTransaction: boolean = false
 ): Promise<ExportedTransaction | void> {
   try {
     if (!fs.existsSync(metadataPath)) {
@@ -847,10 +988,13 @@ async function uploadProgramMetadataByJsonPath(
       keypair,
       rpcUrl,
       priorityFeesPerCU,
-      PROGRAM_METADATA_SEED,
+      SEED_METADATA,
       addSignerSeed,
-      DATA_TYPE_META_JSON,
-      exportOnly
+      exportTransaction,
+      Encoding.Utf8,
+      Compression.Gzip,
+      Format.Json,
+      DataSource.Direct
     );
   } catch (error) {
     if (error instanceof Error) {
@@ -877,7 +1021,7 @@ async function uploadProgramMetadataByUrl(
   rpcUrl: string,
   priorityFeesPerCU: number,
   addSignerSeed: boolean = false,
-  exportOnly: boolean
+  exportOnly: boolean = false
 ): Promise<void | ExportedTransaction> {
   try {
     // Check that the URL is actually a metadata json
@@ -908,10 +1052,13 @@ async function uploadProgramMetadataByUrl(
       keypair,
       rpcUrl,
       priorityFeesPerCU,
-      PROGRAM_METADATA_SEED,
+      SEED_METADATA,
       addSignerSeed,
-      DATA_TYPE_META_URL,
-      exportOnly
+      exportOnly,
+      Encoding.Utf8,
+      Compression.Gzip,
+      Format.Json,
+      DataSource.Url
     );
   } catch (error) {
     if (error instanceof IDLError) {
@@ -1012,8 +1159,11 @@ async function getInitializeInstruction(
   programId: PublicKey,
   seed: string,
   addSignerSeed: boolean,
-  dataType: string,
-  provider: anchor.AnchorProvider
+  provider: anchor.AnchorProvider,
+  encoding: EncodingType,
+  compression: CompressionType,
+  format: FormatType,
+  dataSource: DataSourceType
 ): Promise<anchor.web3.TransactionInstruction | null> {
   // Check if account already exists
   const metadataAccountInfo = await provider.connection.getAccountInfo(
@@ -1046,7 +1196,13 @@ async function getInitializeInstruction(
 
   return addSignerSeed
     ? await program.methods
-        .initializeWithSignerSeed(dataType, seed)
+        .initializeWithSignerSeed(
+          seed,
+          encoding,
+          compression,
+          format,
+          dataSource
+        )
         .accountsPartial({
           pda: metadataPdaAddress,
           programId: programId,
@@ -1054,7 +1210,13 @@ async function getInitializeInstruction(
         })
         .instruction()
     : await program.methods
-        .initialize(dataType, seed)
+        .initialize(
+          seed,
+          encoding,
+          compression,
+          format,
+          dataSource
+        )
         .accountsPartial({
           pda: metadataPdaAddress,
           programId: programId,
@@ -1071,7 +1233,10 @@ async function getSetBufferTransaction(
   priorityFeesPerCU: number,
   seed: string,
   addSignerSeed: boolean,
-  dataType: string
+  encoding: EncodingType,
+  compression: CompressionType,
+  format: FormatType,
+  dataSource: DataSourceType
 ): Promise<anchor.web3.Transaction> {
   const connection = new anchor.web3.Connection(rpcUrl, "confirmed");
   const provider = new anchor.AnchorProvider(
@@ -1104,8 +1269,11 @@ async function getSetBufferTransaction(
     programId,
     seed,
     addSignerSeed,
-    dataType,
-    provider
+    provider,
+    encoding,
+    compression,
+    format,
+    dataSource
   );
 
   if (initInstruction) {
@@ -1283,6 +1451,25 @@ async function closeProgramMetadataByPdaAddress(
     await connection.confirmTransaction(signature, "confirmed");
     console.log("Close metadata signature", signature);
   });
+}
+
+function toAnchorEnum(enumType: string, value: number): any {
+  switch (enumType) {
+    case "encoding":
+      const encodings = ["utf8", "base58", "base64"];
+      return { [encodings[value]]: {} } as EncodingType;
+    case "compression":
+      const compressions = ["none", "gzip", "zstd"];
+      return { [compressions[value]]: {} } as CompressionType;
+    case "format":
+      const formats = ["text", "json", "yaml", "toml", "binary"];
+      return { [formats[value]]: {} } as FormatType;
+    case "dataSource":
+      const dataSources = ["url", "account", "direct"];
+      return { [dataSources[value]]: {} } as DataSourceType;
+    default:
+      throw new Error(`Unknown enum type: ${enumType}`);
+  }
 }
 
 export {

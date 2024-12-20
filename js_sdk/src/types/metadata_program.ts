@@ -73,8 +73,40 @@ export type MetadataProgram = {
       ];
       args: [
         {
-          name: "dataType";
+          name: "seed";
           type: "string";
+        },
+        {
+          name: "encoding";
+          type: {
+            defined: {
+              name: "encoding";
+            };
+          };
+        },
+        {
+          name: "compression";
+          type: {
+            defined: {
+              name: "compression";
+            };
+          };
+        },
+        {
+          name: "format";
+          type: {
+            defined: {
+              name: "format";
+            };
+          };
+        },
+        {
+          name: "dataSource";
+          type: {
+            defined: {
+              name: "dataSource";
+            };
+          };
         }
       ];
     },
@@ -116,12 +148,40 @@ export type MetadataProgram = {
       ];
       args: [
         {
-          name: "dataType";
+          name: "seed";
           type: "string";
         },
         {
-          name: "seed";
-          type: "string";
+          name: "encoding";
+          type: {
+            defined: {
+              name: "encoding";
+            };
+          };
+        },
+        {
+          name: "compression";
+          type: {
+            defined: {
+              name: "compression";
+            };
+          };
+        },
+        {
+          name: "format";
+          type: {
+            defined: {
+              name: "format";
+            };
+          };
+        },
+        {
+          name: "dataSource";
+          type: {
+            defined: {
+              name: "dataSource";
+            };
+          };
         }
       ];
     },
@@ -167,12 +227,40 @@ export type MetadataProgram = {
       ];
       args: [
         {
-          name: "dataType";
+          name: "seed";
           type: "string";
         },
         {
-          name: "seed";
-          type: "string";
+          name: "encoding";
+          type: {
+            defined: {
+              name: "encoding";
+            };
+          };
+        },
+        {
+          name: "compression";
+          type: {
+            defined: {
+              name: "compression";
+            };
+          };
+        },
+        {
+          name: "format";
+          type: {
+            defined: {
+              name: "format";
+            };
+          };
+        },
+        {
+          name: "dataSource";
+          type: {
+            defined: {
+              name: "dataSource";
+            };
+          };
         }
       ];
     },
@@ -326,9 +414,88 @@ export type MetadataProgram = {
       code: 6006;
       name: "wrongProgramId";
       msg: "Wrong program ID";
+    },
+    {
+      code: 6007;
+      name: "dataTypeMismatch";
+      msg: "Data type and seed must match";
     }
   ];
   types: [
+    {
+      name: "compression";
+      type: {
+        kind: "enum";
+        variants: [
+          {
+            name: "none";
+          },
+          {
+            name: "gzip";
+          },
+          {
+            name: "zstd";
+          }
+        ];
+      };
+    },
+    {
+      name: "dataSource";
+      type: {
+        kind: "enum";
+        variants: [
+          {
+            name: "url";
+          },
+          {
+            name: "account";
+          },
+          {
+            name: "direct";
+          }
+        ];
+      };
+    },
+    {
+      name: "encoding";
+      type: {
+        kind: "enum";
+        variants: [
+          {
+            name: "utf8";
+          },
+          {
+            name: "base58";
+          },
+          {
+            name: "base64";
+          }
+        ];
+      };
+    },
+    {
+      name: "format";
+      type: {
+        kind: "enum";
+        variants: [
+          {
+            name: "text";
+          },
+          {
+            name: "json";
+          },
+          {
+            name: "yaml";
+          },
+          {
+            name: "toml";
+          },
+          {
+            name: "binary";
+          }
+        ];
+      };
+    },
     {
       name: "metadataAccount";
       type: {
@@ -371,6 +538,38 @@ export type MetadataProgram = {
             type: "pubkey";
           },
           {
+            name: "encoding";
+            type: {
+              defined: {
+                name: "encoding";
+              };
+            };
+          },
+          {
+            name: "compression";
+            type: {
+              defined: {
+                name: "compression";
+              };
+            };
+          },
+          {
+            name: "format";
+            type: {
+              defined: {
+                name: "format";
+              };
+            };
+          },
+          {
+            name: "dataSource";
+            type: {
+              defined: {
+                name: "dataSource";
+              };
+            };
+          },
+          {
             name: "dataLen";
             type: "u32";
           }
@@ -397,6 +596,38 @@ export type MetadataProgram = {
             type: "pubkey";
           },
           {
+            name: "encoding";
+            type: {
+              defined: {
+                name: "encoding";
+              };
+            };
+          },
+          {
+            name: "compression";
+            type: {
+              defined: {
+                name: "compression";
+              };
+            };
+          },
+          {
+            name: "format";
+            type: {
+              defined: {
+                name: "format";
+              };
+            };
+          },
+          {
+            name: "dataSource";
+            type: {
+              defined: {
+                name: "dataSource";
+              };
+            };
+          },
+          {
             name: "dataLen";
             type: "u32";
           }
@@ -406,14 +637,9 @@ export type MetadataProgram = {
   ];
   constants: [
     {
-      name: "dataTypeIdlJson";
+      name: "dataTypeIdl";
       type: "string";
-      value: '"idl.json"';
-    },
-    {
-      name: "dataTypeIdlUrl";
-      type: "string";
-      value: '"idl.url"';
+      value: '"idl"';
     },
     {
       name: "dataTypeLength";
@@ -421,19 +647,14 @@ export type MetadataProgram = {
       value: "16";
     },
     {
-      name: "dataTypeMetaJson";
+      name: "dataTypeMetadata";
       type: "string";
-      value: '"meta.json"';
-    },
-    {
-      name: "dataTypeMetaUrl";
-      type: "string";
-      value: '"meta.url"';
+      value: '"metadata"';
     },
     {
       name: "metadataAccountSize";
       type: "u64";
-      value: "92";
+      value: "96";
     }
   ];
 };
