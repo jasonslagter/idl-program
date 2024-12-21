@@ -1,7 +1,7 @@
 {
   "name": "solana-program-metadata",
   "description": "Save Solana program metadata and IDLs on chain",
-  "version": "1.0.3",
+  "version": "1.2.1",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/solana-developers/idl-program.git"

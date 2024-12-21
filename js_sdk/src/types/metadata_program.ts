@@ -59,6 +59,21 @@ export type MetadataProgram = {
       args: [];
     },
     {
+      name: "closeMetadataAccount3";
+      discriminator: [45, 239, 223, 90, 12, 191, 163, 140];
+      accounts: [
+        {
+          name: "metadataAccount";
+          writable: true;
+        },
+        {
+          name: "authority";
+          signer: true;
+        }
+      ];
+      args: [];
+    },
+    {
       name: "createBuffer";
       discriminator: [175, 76, 101, 74, 224, 249, 104, 170];
       accounts: [
@@ -375,6 +390,10 @@ export type MetadataProgram = {
       discriminator: [217, 197, 213, 23, 62, 14, 230, 192];
     },
     {
+      name: "metadataAccount3";
+      discriminator: [180, 62, 172, 157, 43, 105, 117, 200];
+    },
+    {
       name: "metadataBuffer";
       discriminator: [123, 121, 190, 46, 245, 204, 102, 54];
     }
@@ -536,6 +555,32 @@ export type MetadataProgram = {
           {
             name: "programId";
             type: "pubkey";
+          },
+          {
+            name: "dataLen";
+            type: "u32";
+          }
+        ];
+      };
+    },
+    {
+      name: "metadataAccount3";
+      type: {
+        kind: "struct";
+        fields: [
+          {
+            name: "authority";
+            type: "pubkey";
+          },
+          {
+            name: "programId";
+            type: "pubkey";
+          },
+          {
+            name: "dataType";
+            type: {
+              array: ["u8", 16];
+            };
           },
           {
             name: "encoding";

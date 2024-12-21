@@ -6,6 +6,7 @@ import * as anchor from "@coral-xyz/anchor";
 import { inflate, deflate } from "pako";
 import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 import { decodeUpgradeableLoaderState } from "@coral-xyz/anchor/dist/cjs/utils/registry";
+import NodeWallet from "@coral-xyz/anchor/dist/cjs/nodewallet";
 
 const CHUNK_SIZE = 900;
 const MAX_RESIZE_STEP = 10240;
@@ -188,9 +189,8 @@ async function uploadIdlByAccountAddress(
   addSignerSeed: boolean = false,
   exportOnly: boolean = false
 ): Promise<void | ExportedTransaction> {
- 
   // Create a buffer to hold the account address (32 bytes) and two u32s (4 bytes each)
-  const buffer = Buffer.alloc(40); 
+  const buffer = Buffer.alloc(40);
 
   // Write the account address to the first 32 bytes
   accountAddress.toBuffer().copy(buffer, 0);
@@ -200,7 +200,7 @@ async function uploadIdlByAccountAddress(
 
   // Write length as u32 (4 bytes) at position 36
   buffer.writeUInt32LE(accountDataLength, 36);
-  
+
   return await uploadGenericDataBySeed(
     buffer,
     programId,
@@ -712,7 +712,7 @@ async function fetchIDL(
 
   const provider = new anchor.AnchorProvider(
     connection,
-    new anchor.Wallet(new Keypair()),
+    new NodeWallet(Keypair.generate()),
     {}
   );
   anchor.setProvider(provider);
@@ -724,7 +724,7 @@ async function fetchIDL(
     throw new Error(`IDL account not found at ${idlAccount.toBase58()}`);
   }
   const decoded = program.coder.accounts.decode(
-    "metadataAccount2",
+    "metadataAccount3",
     accountInfo.data
   );
 
@@ -901,18 +901,17 @@ async function fetchProgramMetadata(
 
   const provider = new anchor.AnchorProvider(
     connection,
-    new anchor.Wallet(new Keypair()),
+    new NodeWallet(Keypair.generate()),
     {}
   );
   anchor.setProvider(provider);
   const program = new anchor.Program(IDL as MetadataProgram, provider);
   const decoded = program.coder.accounts.decode(
-    "metadataAccount2",
+    "metadataAccount3",
     accountInfo.data
   );
 
   // Get the data type from the account
-  const dataType = decoded.dataType;
   const dataLength = decoded.dataLen;
   const format = decoded.format;
 
@@ -1114,6 +1113,47 @@ export async function closeProgramMetadata2(
   });
 }
 
+export async function closeProgramMetadata3(
+  programId: PublicKey,
+  authority: Keypair,
+  rpcUrl: string,
+  seed: string,
+  priorityFees: number = 100000,
+  additionalSignerSeed?: boolean
+): Promise<void> {
+  const { connection, provider, program } = setupConnection(rpcUrl, authority);
+
+  // Find the metadata account PDA
+  const metadataAccount = getMetadataAddressBySeed(
+    programId,
+    seed,
+    additionalSignerSeed ? authority.publicKey : undefined
+  );
+
+  const closeInstruction = await program.methods
+    .closeMetadataAccount3()
+    .accountsPartial({
+      metadataAccount: metadataAccount,
+      authority: authority.publicKey,
+    })
+    .instruction();
+
+  const tx = await createTransaction(
+    connection,
+    authority.publicKey,
+    priorityFees
+  );
+
+  tx.add(closeInstruction);
+  provider.wallet.signTransaction(tx);
+
+  await withRetry(async () => {
+    const signature = await connection.sendRawTransaction(tx.serialize());
+    await connection.confirmTransaction(signature, "confirmed");
+    console.log("Close metadata signature", signature);
+  });
+}
+
 export async function closeProgramMetadata1(
   programId: PublicKey,
   authority: Keypair,
@@ -1210,13 +1250,7 @@ async function getInitializeInstruction(
         })
         .instruction()
     : await program.methods
-        .initialize(
-          seed,
-          encoding,
-          compression,
-          format,
-          dataSource
-        )
+        .initialize(seed, encoding, compression, format, dataSource)
         .accountsPartial({
           pda: metadataPdaAddress,
           programId: programId,
@@ -1342,6 +1376,10 @@ async function listAccountsByType(
     dataLength: number;
     dataType: string;
     programId: PublicKey;
+    encoding: EncodingType;
+    compression: CompressionType;
+    format: FormatType;
+    dataSource: DataSourceType;
   }>
 > {
   const connection = new anchor.web3.Connection(rpcUrl);
@@ -1389,6 +1427,10 @@ async function listAccountsByType(
       dataLength: decoded.dataLen,
       dataType: Buffer.from(decoded.dataType).toString().replace(/\0+$/, ""),
       programId: decoded.programId,
+      encoding: decoded.encoding,
+      compression: decoded.compression,
+      format: decoded.format,
+      dataSource: decoded.dataSource,
     };
   });
 }
@@ -1402,6 +1444,10 @@ async function listBuffers(
     dataLength: number;
     dataType: string;
     programId: PublicKey;
+    encoding: EncodingType;
+    compression: CompressionType;
+    format: FormatType;
+    dataSource: DataSourceType;
   }>
 > {
   return listAccountsByType(authority, rpcUrl, "MetadataBuffer");
@@ -1416,9 +1462,13 @@ async function listPDAs(
     dataLength: number;
     dataType: string;
     programId: PublicKey;
+    encoding: EncodingType;
+    compression: CompressionType;
+    format: FormatType;
+    dataSource: DataSourceType;
   }>
 > {
-  return listAccountsByType(authority, rpcUrl, "MetadataAccount2");
+  return listAccountsByType(authority, rpcUrl, "MetadataAccount3");
 }
 
 async function closeProgramMetadataByPdaAddress(
@@ -1430,7 +1480,7 @@ async function closeProgramMetadataByPdaAddress(
   const { connection, provider, program } = setupConnection(rpcUrl, keypair);
 
   const closeInstruction = await program.methods
-    .closeMetadataAccount2()
+    .closeMetadataAccount3()
     .accountsPartial({
       metadataAccount: pdaAddress,
       authority: keypair.publicKey,

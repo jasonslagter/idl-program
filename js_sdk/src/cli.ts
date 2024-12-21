@@ -137,7 +137,10 @@ idlCommand
     "Add signer's public key as additional seed. This will create a non associated metadata account. ",
     false
   )
-  .option("--export-transaction", "Only create buffer and export setBuffer transaction")
+  .option(
+    "--export-transaction",
+    "Only create buffer and export setBuffer transaction"
+  )
   .action(async (file, programId, options) => {
     try {
       const rpcUrl = getRpcUrl(options);
@@ -171,7 +174,9 @@ idlCommand
       );
 
       if (options.exportTransaction && result) {
-        console.log("Exported setBuffer transaction with programAuthority as signer:");
+        console.log(
+          "Exported setBuffer transaction with programAuthority as signer:"
+        );
         console.log("Base58:", result.base58);
         console.log("Base64:", result.base64);
       } else {
@@ -204,7 +209,10 @@ idlCommand
     "Add signer's public key as additional seed. This will create a non associated metadata account. ",
     false
   )
-  .option("--export-transaction", "Only create buffer and export setBuffer transaction")
+  .option(
+    "--export-transaction",
+    "Only create buffer and export setBuffer transaction"
+  )
   .action(async (url, programId, options) => {
     try {
       const rpcUrl = getRpcUrl(options);
@@ -238,7 +246,9 @@ idlCommand
       );
 
       if (options.exportTransaction && result) {
-        console.log("Exported setBuffer transaction with programAuthority as signer:");
+        console.log(
+          "Exported setBuffer transaction with programAuthority as signer:"
+        );
         console.log("Base58:", result.base58);
         console.log("Base64:", result.base64);
       } else {
@@ -312,7 +322,10 @@ metadataCommand
     "Add signer's public key as additional seed. This will create a non associated metadata account. ",
     false
   )
-  .option("--export-transaction", "Only create buffer and export setBuffer transaction")
+  .option(
+    "--export-transaction",
+    "Only create buffer and export setBuffer transaction"
+  )
   .action(async (file, programId, options) => {
     try {
       const rpcUrl = getRpcUrl(options);
@@ -346,7 +359,9 @@ metadataCommand
       );
 
       if (options.exportTransaction && result) {
-        console.log("Exported setBuffer transaction with programAuthority as signer:");
+        console.log(
+          "Exported setBuffer transaction with programAuthority as signer:"
+        );
         console.log("Base58:", result.base58);
         console.log("Base64:", result.base64);
       } else {
@@ -379,7 +394,10 @@ metadataCommand
     "Add signer's public key as additional seed. This will create a non associated metadata account. ",
     false
   )
-  .option("--export-transaction", "Only create buffer and export setBuffer transaction")
+  .option(
+    "--export-transaction",
+    "Only create buffer and export setBuffer transaction"
+  )
   .action(async (url, programId, options) => {
     try {
       const rpcUrl = getRpcUrl(options);
@@ -413,7 +431,9 @@ metadataCommand
       );
 
       if (options.exportTransaction && result) {
-        console.log("Exported setBuffer transaction with programAuthority as signer:");
+        console.log(
+          "Exported setBuffer transaction with programAuthority as signer:"
+        );
         console.log("Base58:", result.base58);
         console.log("Base64:", result.base64);
       } else {
@@ -633,7 +653,9 @@ metadataCommand
       const rpcUrl = getRpcUrl(options);
       const keypair = options.keypair
         ? Keypair.fromSecretKey(
-            new Uint8Array(JSON.parse(fs.readFileSync(options.keypair, "utf-8")))
+            new Uint8Array(
+              JSON.parse(fs.readFileSync(options.keypair, "utf-8"))
+            )
           )
         : loadDefaultKeypair();
 
@@ -666,23 +688,41 @@ metadataCommand
       const rpcUrl = getRpcUrl(options);
       const keypair = options.keypair
         ? Keypair.fromSecretKey(
-            new Uint8Array(JSON.parse(fs.readFileSync(options.keypair, "utf-8")))
+            new Uint8Array(
+              JSON.parse(fs.readFileSync(options.keypair, "utf-8"))
+            )
           )
         : loadDefaultKeypair();
 
       const buffers = await listBuffers(keypair.publicKey, rpcUrl);
-      
+
       if (buffers.length === 0) {
         console.log("No buffers found for this authority");
         return;
       }
 
       console.log("\nFound buffers:");
-      buffers.forEach(({ address, dataLength, dataType }) => {
-        console.log(`\nAddress: ${address.toBase58()}`);
-        console.log(`Data Length: ${dataLength} bytes`);
-        console.log(`Data Type: ${dataType}`);
-      });
+      buffers.forEach(
+        ({
+          address,
+          dataLength,
+          dataType,
+          encoding,
+          compression,
+          format,
+          dataSource,
+        }) => {
+          console.log(`\n
+Address: ${address.toBase58()}
+Data Length: ${dataLength} bytes
+Data Type: ${dataType}
+Encoding: ${JSON.stringify(encoding, null, 2)}
+Compression: ${JSON.stringify(compression, null, 2)}
+Format: ${JSON.stringify(format, null, 2)}
+Data Source: ${JSON.stringify(dataSource, null, 2)}
+`);
+        }
+      );
     } catch (error) {
       console.error(
         "Error:",
@@ -705,24 +745,44 @@ metadataCommand
       const rpcUrl = getRpcUrl(options);
       const keypair = options.keypair
         ? Keypair.fromSecretKey(
-            new Uint8Array(JSON.parse(fs.readFileSync(options.keypair, "utf-8")))
+            new Uint8Array(
+              JSON.parse(fs.readFileSync(options.keypair, "utf-8"))
+            )
           )
         : loadDefaultKeypair();
 
       const pdas = await listPDAs(keypair.publicKey, rpcUrl);
-      
+
       if (pdas.length === 0) {
         console.log("No PDAs found for this authority");
         return;
       }
 
       console.log("\nFound PDAs:");
-      pdas.forEach(({ address, dataLength, dataType, programId }) => {
-        console.log(`\nAddress: ${address.toBase58()}`);
-        console.log(`Program ID: ${programId.toBase58()}`);
-        console.log(`Data Length: ${dataLength} bytes`);
-        console.log(`Data Type: ${dataType}`);
-      });
+      pdas.forEach(
+        ({
+          address,
+          dataLength,
+          dataType,
+          programId,
+          encoding,
+          compression,
+          format,
+          dataSource,
+        }) => {
+          console.log(
+            `\n
+Address: ${address.toBase58()}
+Program ID: ${programId.toBase58()}
+Data Length: ${dataLength} bytes
+Data Type: ${dataType}
+Encoding: ${JSON.stringify(encoding, null, 2)} 
+Compression: ${JSON.stringify(compression, null, 2)}
+Format: ${JSON.stringify(format, null, 2)}
+Data Source: ${JSON.stringify(dataSource, null, 2)}`
+          );
+        }
+      );
     } catch (error) {
       console.error(
         "Error:",
@@ -750,7 +810,9 @@ metadataCommand
       const rpcUrl = getRpcUrl(options);
       const keypair = options.keypair
         ? Keypair.fromSecretKey(
-            new Uint8Array(JSON.parse(fs.readFileSync(options.keypair, "utf-8")))
+            new Uint8Array(
+              JSON.parse(fs.readFileSync(options.keypair, "utf-8"))
+            )
           )
         : loadDefaultKeypair();
 

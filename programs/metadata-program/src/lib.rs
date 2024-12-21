@@ -202,6 +202,10 @@ pub mod metadata_program {
         Ok(())
     }
 
+    pub fn close_metadata_account_3(_ctx: Context<CloseMetadataAccount3>) -> Result<()> {
+        Ok(())
+    }
+
     pub fn close_metadata_account_2(_ctx: Context<CloseMetadataAccount2>) -> Result<()> {
         Ok(())
     }
@@ -297,7 +301,7 @@ pub mod metadata_program {
         fn trailing_data_mut(self) -> RefMut<'info, [u8]>;
     }
 
-    impl<'a, 'info: 'a> MetadataUploadTrailingData<'a> for &'a Account<'info, MetadataAccount2> {
+    impl<'a, 'info: 'a> MetadataUploadTrailingData<'a> for &'a Account<'info, MetadataAccount3> {
         fn trailing_data(self) -> Ref<'a, [u8]> {
             let info: &AccountInfo<'info> = self.as_ref();
             Ref::map(info.try_borrow_data().unwrap(), |d| &d[(METADATA_ACCOUNT_SIZE as usize )..])
@@ -341,7 +345,7 @@ pub struct Initialize<'info> {
         payer = signer,
         space = METADATA_ACCOUNT_SIZE as usize,
     )]
-    pub pda: Account<'info, MetadataAccount2>,
+    pub pda: Account<'info, MetadataAccount3>,
     #[account(mut)]
     pub signer: Signer<'info>,
     pub system_program: Program<'info, System>,
@@ -368,7 +372,7 @@ pub struct InitializeWithSignerSeed<'info> {
         payer = signer,
         space = METADATA_ACCOUNT_SIZE as usize,
     )]
-    pub pda: Account<'info, MetadataAccount2>,
+    pub pda: Account<'info, MetadataAccount3>,
     #[account(mut)]
     pub signer: Signer<'info>,
     pub system_program: Program<'info, System>,
@@ -381,7 +385,7 @@ pub struct InitializeWithSignerSeed<'info> {
 #[derive(Accounts)]
 pub struct MetadataAccounts<'info> {
     #[account(mut, has_one = authority)]
-    pub pda: Account<'info, MetadataAccount2>,
+    pub pda: Account<'info, MetadataAccount3>,
     #[account(constraint = authority.key != &ERASED_AUTHORITY)]
     pub authority: Signer<'info>,
 }
@@ -397,7 +401,7 @@ pub struct Resize<'info> {
         realloc::payer = signer,
         constraint = pda.authority == signer.key()
     )]
-    pub pda: Account<'info, MetadataAccount2>,
+    pub pda: Account<'info, MetadataAccount3>,
     #[account(mut)]
     pub signer: Signer<'info>,
     pub system_program: Program<'info, System>,
@@ -426,13 +430,21 @@ pub struct CloseMetadataAccount2<'info> {
 
 // Close metadata account to claim back SOL. Only the authority can close the account.
 #[derive(Accounts)]
+pub struct CloseMetadataAccount3<'info> {
+    #[account(mut, close = authority, constraint = metadata_account.authority == authority.key())]
+    pub metadata_account: Account<'info, MetadataAccount3>,
+    #[account(constraint = authority.key != &ERASED_AUTHORITY)]
+    pub authority: Signer<'info>,
+}
+
+// Close metadata account to claim back SOL. Only the authority can close the account.
+#[derive(Accounts)]
 pub struct CloseMetadataAccount1<'info> {
     #[account(mut, close = authority, constraint = metadata_account.authority == authority.key())]
     pub metadata_account: Account<'info, MetadataAccount>,
     #[account(constraint = authority.key != &ERASED_AUTHORITY)]
     pub authority: Signer<'info>,
 }
-
 
 // Close buffer to claim back SOL
 #[derive(Accounts)]
@@ -464,7 +476,7 @@ pub struct SetBuffer<'info> {
     // 2. The PDA that is the authority of the program data. This is the PDA authority.
     // So the program authority can always overwrite the PDA authority.
     #[account(mut)]
-    pub pda: Account<'info, MetadataAccount2>,
+    pub pda: Account<'info, MetadataAccount3>,
     #[account(constraint = authority.key != &ERASED_AUTHORITY)]
     pub authority: Signer<'info>,
     /// CHECK: This is the program id of the program you want to upload the IDL for.
@@ -504,10 +516,10 @@ pub enum DataSource {
 }
 
 #[account]
-pub struct MetadataAccount2 {
+pub struct MetadataAccount3 {
     pub authority: Pubkey,
-    pub data_type: [u8; 16],
     pub program_id: Pubkey,
+    pub data_type: [u8; 16],
     pub encoding: Encoding,
     pub compression: Compression,
     pub format: Format,
@@ -515,6 +527,7 @@ pub struct MetadataAccount2 {
     pub data_len: u32,
     // trailing data...
 }
+
 
 #[account]
 pub struct MetadataBuffer {
@@ -528,6 +541,16 @@ pub struct MetadataBuffer {
     pub data_len: u32,
     // trailing data...
 }
+
+#[account]
+pub struct MetadataAccount2 {
+    pub authority: Pubkey,
+    pub data_type: [u8; 16],
+    pub program_id: Pubkey,
+    pub data_len: u32,
+    // trailing data...
+}
+
 
 #[account]
 pub struct MetadataAccount {
@@ -569,7 +592,7 @@ pub const METADATA_ACCOUNT_SIZE: u64 =
     U32_LENGTH +                   // data_len
     8;                             // discriminator
 
-impl MetadataAccount2 {
+impl MetadataAccount3 {
     pub fn set_data_type(&mut self, data_type: &str) -> Result<()> {
         require!(data_type.len() <= DATA_TYPE_LENGTH as usize, MyError::DataTypeTooLong);
         self.data_type.fill(0);  // Clear existing data

@@ -1,4 +1,4 @@
-# Solana Program Metadata CLI 
+# Solana Program Metadata CLI
 
 ## Table of Contents
 
@@ -217,6 +217,22 @@ When using the `-a, --add-signer-seed` option, the program will add the signer's
 This can be useful though if there is some entity that wants to upload metadata for a program but does not have the authority to do so.
 
 ## Changelog
+
+### 1.2.1 (2024-12-21)
+
+- Changes anchor wallet to NodeWallet to fix compatibility issues
+
+### 1.2.0 (2024-12-21)
+
+- Added extra fields to metadata account
+  - format
+  - encoding
+  - compression
+  - data_source
+- Use account coder to decode metadata accounts
+- Change data type to always be the same as seed
+- Moved pubkeys together in metadata account
+- Added option to upload metadata as an account, with offset and length
 
 ### 1.1.0 (2024-12-20)
 
